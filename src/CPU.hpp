@@ -3,6 +3,11 @@
 
 class CPU
 {	
+public:
+	CPU(const char* file);
+	void CPU_TESTING();
+
+private:
 	struct CPU_Registers
 	{
 		char A;
@@ -16,10 +21,7 @@ class CPU
 	CPU_Registers* registers;
 	char* memory;
 
-public:
-	CPU();
-	void CPU_TESTING();
-
+	void LoadROM(const char* file);
 };
 
 #endif

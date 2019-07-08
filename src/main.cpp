@@ -3,7 +3,7 @@
 
 int main()
 {
-	CPU* cpu = new CPU();
+	CPU* cpu = new CPU("DonkeyKong.txt");
 
 	return 0;
 }

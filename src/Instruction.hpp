@@ -1,7 +1,7 @@
 #ifndef INSTRUCTION_H
 #define INSTRUCTION_H
 
-enum Instruction
+enum OPCodes
 {
 	ADC,  //Add Memory to Accumulator with Carry
 	AND,  //"AND" Memory with Accumulator
@@ -75,7 +75,13 @@ enum Instruction
 	TYA   //Transfer Index Y to Accumulator
 };
 
+struct Instruction
+{
+	OPCodes opcode;
 
-Instruction decodeInstruction();
+};
+
+
+//Instruction decodeInstruction();
 
 #endif

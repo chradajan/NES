@@ -1,7 +1,8 @@
 #include "CPU.hpp"
 #include <iostream>
+#include <fstream>
 
-CPU::CPU()
+CPU::CPU(const char* file)
 {
 	registers = new CPU_Registers();
 	memory = new char[0xFFFF];
@@ -17,7 +18,18 @@ CPU::CPU()
 	for(int i = 0x4000; i <= 0x400F; ++i)
 		memory[i] = 0x00;
 	//TODO: Set Noise Channel to 0x0000
+
+	LoadROM(file);
 }
+
+void CPU::LoadROM(const char* file)
+{
+	std::ifstream rom(file);
+	char ch;
+	while(rom.get(ch))
+		std::cout << ch << std::endl;	
+}
+
 
 void CPU::CPU_TESTING()
 {
