@@ -3,7 +3,8 @@
 
 int main()
 {
-	CPU* cpu = new CPU("DonkeyKong.txt");
+	CPU cpu("DonkeyKong.txt");
+	cpu.CPU_TESTING();
 
 	return 0;
 }

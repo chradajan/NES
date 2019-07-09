@@ -1,5 +1,7 @@
 #ifndef INSTRUCTION_H
 #define INSTRUCTION_H
+#include <cstdint>
+#include <CPU.hpp>
 
 enum OPCodes
 {
@@ -78,10 +80,12 @@ enum OPCodes
 struct Instruction
 {
 	OPCodes opcode;
-
+	short int byteCount;
+	uint8_t lowByte;
+	uint8_t highByte;
 };
 
 
-//Instruction decodeInstruction();
+Instruction decodeInstruction(CPU& cpu);
 
 #endif

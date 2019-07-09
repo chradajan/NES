@@ -1,6 +1,6 @@
 #include "Instruction.hpp"
 
-// Instruction decodeInstruction()
-// {
-// 	return NOP;
-// }
+Instruction decodeInstruction(CPU& cpu)
+{
+	
+}

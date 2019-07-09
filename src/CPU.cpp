@@ -22,6 +22,11 @@ CPU::CPU(const char* file)
 	loadROM(file);
 }
 
+CPU::~CPU()
+{
+	delete registers;
+}
+
 void CPU::loadROM(const char* file)
 {
 	uint16_t loc = 0x8000;
@@ -43,7 +48,7 @@ void CPU::loadROM(const char* file)
 
 	if(loc <= 0xBFFF)
 	{
-		uint16_t mirrorLoc = 0xC0000;
+		uint16_t mirrorLoc = 0xC000;
 		for(uint16_t i = 0x8000; i <= loc; ++i)
 		{
 			memory[mirrorLoc] = memory[i];
@@ -69,6 +74,5 @@ uint8_t CPU::convertAscii(uint8_t c)
 
 void CPU::CPU_TESTING()
 {
-	for(uint16_t i = 0x8000; i <= 0x80FF; ++i)
-		std::cout << std::hex << (unsigned int)memory[i] << std::endl;
+
 }

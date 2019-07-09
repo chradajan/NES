@@ -6,6 +6,8 @@ class CPU
 {	
 public:
 	CPU(const char* file);
+	~CPU();
+
 	void CPU_TESTING();
 
 private:
