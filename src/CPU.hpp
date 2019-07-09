@@ -1,5 +1,6 @@
 #ifndef CPU_H
 #define CPU_H
+#include <cstdint>
 
 class CPU
 {	
@@ -10,16 +11,16 @@ public:
 private:
 	struct CPU_Registers
 	{
-		char A;
-		char X;	
-		char Y;
-		short int PC;
-		char S;
-		char P;
+		uint8_t A;
+		uint8_t X;	
+		uint8_t Y;
+		uint16_t PC;
+		uint8_t S;
+		uint8_t P;
 	};
 
 	CPU_Registers* registers;
-	char* memory;
+	uint8_t memory[0xFFFF];
 
 	void LoadROM(const char* file);
 };
