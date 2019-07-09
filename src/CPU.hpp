@@ -22,7 +22,8 @@ private:
 	CPU_Registers* registers;
 	uint8_t memory[0xFFFF];
 
-	void LoadROM(const char* file);
+	void loadROM(const char* file);
+	uint8_t convertAscii(uint8_t c);
 };
 
 #endif

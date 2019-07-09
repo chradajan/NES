@@ -19,50 +19,56 @@ CPU::CPU(const char* file)
 		memory[i] = 0x00;
 	//TODO: Set Noise Channel to 0x0000
 
-	LoadROM(file);
+	loadROM(file);
 }
 
-void CPU::LoadROM(const char* file)
+void CPU::loadROM(const char* file)
 {
 	uint16_t loc = 0x8000;
 	std::ifstream rom(file);
-	char temp1, temp2;
+	uint8_t temp1, temp2;
 	uint8_t value;
-	//while(!rom.eof())
-	for(int j = 0; j < 16; ++j)
+
+	while(rom >> std::hex >> temp1)
 	{
-		rom >> std::hex >> temp1;
-		std::cout << temp1 << std::endl;
 		rom >> std::hex >> temp2;
-		
-		if(temp1 >= 48 && temp1 <= 57)
-			temp1 -= 48;
-		else if(temp1 >= 65 && temp1 <= 70)
-			temp1 -= 55;
-		else if(temp1 >= 97 && temp1 <= 102)
-			temp1 -= 87;
-		else
-			throw BadRom{};
+		temp1 = convertAscii(temp1);
+		temp2 = convertAscii(temp2);
 
-		if(temp2 >= 48 && temp2 <= 57)
-			temp2 -= 48;
-		else if(temp2 >= 65 && temp2 <= 70)
-			temp2 -= 55;
-		else if(temp2 >= 97 && temp2 <= 102)
-			temp2 -= 87;
-		else
-			throw BadRom{};
+		value = (unsigned int)temp1*16 + (unsigned int)temp2;
 
-		value = temp1*16 + temp2;
-		std::cout << temp1 << std::endl;
+		memory[loc] = value;
+		++loc;
 	}
 
-	std::cout << std::endl;
+	if(loc <= 0xBFFF)
+	{
+		uint16_t mirrorLoc = 0xC0000;
+		for(uint16_t i = 0x8000; i <= loc; ++i)
+		{
+			memory[mirrorLoc] = memory[i];
+			++mirrorLoc;
+		}
+	}
+	
 	rom.close();
+}
+
+uint8_t CPU::convertAscii(uint8_t c)
+{
+	if(c >= 48 && c <= 57)
+			return c - 48;
+		else if(c >= 65 && c <= 70)
+			return c - 55;
+		else if(c >= 97 && c <= 102)
+			return c - 87;
+		else
+			throw BadRom{};
 }
 
 
 void CPU::CPU_TESTING()
 {
-
+	for(uint16_t i = 0x8000; i <= 0x80FF; ++i)
+		std::cout << std::hex << (unsigned int)memory[i] << std::endl;
 }
