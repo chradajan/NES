@@ -12,6 +12,7 @@ CPU::CPU(const char* file)
 	registers->X = 0;
 	registers->Y = 0;
 	registers->S = 0xFD;
+	registers->PC = 0x8000; //This might need to be changed based on mapper
 	
 	memory[0x4017] = 0x00;
 	memory[0x4015] = 0x00;
@@ -20,6 +21,11 @@ CPU::CPU(const char* file)
 	//TODO: Set Noise Channel to 0x0000
 
 	loadROM(file);
+}
+
+void CPU::tick()
+{
+	executeInstruction();
 }
 
 CPU::~CPU()
@@ -40,7 +46,7 @@ void CPU::loadROM(const char* file)
 		temp1 = convertAscii(temp1);
 		temp2 = convertAscii(temp2);
 
-		value = (unsigned int)temp1*16 + (unsigned int)temp2;
+		value = temp1*16 + temp2;
 
 		memory[loc] = value;
 		++loc;
@@ -71,8 +77,114 @@ uint8_t CPU::convertAscii(uint8_t c)
 			throw BadRom{};
 }
 
+bool CPU::if_carry()
+{
+	return registers->P & 0x1;
+}
+
+bool CPU::if_overflow()
+{
+	return (registers->P >> 6) & 0x1;
+}
+
+bool CPU::if_sign()
+{
+	return (registers->P >> 7) & 0x1;
+}
+
+bool CPU::if_zero()
+{
+	return (registers->P >> 1) & 0x1;
+}
+
+void CPU::set_sign(uint16_t value)
+{
+	registers->P |= ((value >> 7) & 0x1) << 7;
+}
+
+void CPU::set_zero(uint16_t value)
+{
+	if(value == 0)
+		registers->P |= 0x1 << 1;
+	else
+		registers->P &= ~(0x1 << 1);
+}
+
+void CPU::set_carry(bool condition)
+{
+	if(condition)
+		registers->P |= 0x1;
+	else
+		registers->P &= ~(0x1);
+}
+
+void CPU::set_overflow(bool condition)
+{
+	if(condition)
+		registers->P |= 0x1 << 6;
+	else
+		registers->P &= ~(0x1 << 6);
+}
+
+void CPU::set_interrupt(bool condition)
+{
+	if(condition)
+		registers->P |= 0x1 << 2;
+	else
+		registers->P &= ~(0x1 << 2);
+}
+
+void CPU::set_break(bool condition)
+{
+	if(condition)
+		registers->P |= 0x1 << 4;
+	else
+		registers->P &= ~(0x1 << 4);
+}
+
+void CPU::executeInstruction()
+{
+	uint8_t lowByte;
+	uint8_t highByte;
+	uint16_t operand;
+
+	switch(memory[registers->PC++])
+	{
+		case 0x69: //Immediate ADC
+		{
+			cycles = 2;
+			operand = memory[registers->PC++];
+			ADC(operand);
+			break;
+		}
+		case 0x65: //Zero Page
+		{
+			cycles = 3;
+			lowByte = memory[registers->PC++];
+			operand = memory[lowByte];
+			ADC(operand);
+			break;
+		}
+		case 0x75: //Zero Page, X
+		{
+			cycles = 4;
+			lowByte = memory[registers->PC++];
+			operand = lowByte + registers->X;
+
+		}
+	}
+}
+
+void CPU::ADC(uint16_t operand)
+{
+
+}
 
 void CPU::CPU_TESTING()
 {
-
+	registers->P = 0b00000000;
+	std::cout << std::hex << (unsigned int)registers->P << std::endl;
+	uint16_t test = 0x1;
+	set_zero(test);
+	std::cout << std::hex << (unsigned int)registers->P << std::endl;
 }
