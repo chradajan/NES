@@ -46,6 +46,17 @@ private:
 	void set_interrupt(bool condition);
 	void set_break(bool condition);
 
+	//Fetch operand
+	uint8_t fetchImmediate();
+	uint8_t fetchZeroPage();
+	uint8_t fetchZeroPageX();
+	uint8_t fetchZeroPageY();
+	uint8_t fetchAbsolute();
+	uint8_t fetchAbsoluteX();
+	uint8_t fetchAbsoluteY();
+	uint8_t fetchIndirectX();
+	uint8_t fetchIndirectY();
+
 	void executeInstruction();
 
 	//Instructions

@@ -17,6 +17,8 @@ CPU::CPU(const char* file)
 	memory[0x4017] = 0x00;
 	memory[0x4015] = 0x00;
 
+	memory[0x0069] = 0x69;
+
 	for(int i = 0x4000; i <= 0x400F; ++i)
 		memory[i] = 0x00;
 	//TODO: Set Noise Channel to 0x0000
@@ -148,78 +150,126 @@ void CPU::set_break(bool condition)
 		registers->P &= ~(0x1 << 4);
 }
 
+uint8_t CPU::fetchImmediate()
+{
+	return readByte();
+}
+
+uint8_t CPU::fetchZeroPage()
+{
+	return memory[readByte()];
+}
+
+uint8_t CPU::fetchZeroPageX()
+{
+	uint8_t address = readByte();
+	address += registers->X;
+	return memory[address];
+}
+
+uint8_t CPU::fetchZeroPageY()
+{
+	uint8_t address = readByte();
+	address += registers->Y;
+	return memory[address];
+}
+
+uint8_t CPU::fetchAbsolute()
+{
+	uint8_t lowByte = readByte();
+	uint8_t highByte = readByte();
+	return memory[(highByte << 8) + lowByte];
+}
+
+uint8_t CPU::fetchAbsoluteX()
+{
+	uint8_t lowByte = readByte();
+	uint8_t highByte = readByte();
+	uint16_t temp = lowByte + registers->X;
+	if(temp > 0xFF)
+		++cycles;
+	uint16_t address = (highByte << 8) + temp;
+	return memory[address];
+}
+
+uint8_t CPU::fetchAbsoluteY()
+{
+	uint8_t lowByte = readByte();
+	uint8_t highByte = readByte();
+	uint16_t temp = lowByte + registers->Y;
+	if(temp > 0xFF)
+		++cycles;
+	uint16_t address = (highByte << 8) + temp;
+	return memory[address];
+}
+
+uint8_t CPU::fetchIndirectX()
+{
+	uint8_t firstAddress = readByte() + registers->X;
+	uint16_t operandAddress = (memory[firstAddress + 1] << 8) + memory[firstAddress];
+	return memory[operandAddress];
+}
+
+uint8_t CPU::fetchIndirectY()
+{
+	uint8_t firstAddress = readByte();
+	uint16_t address = memory[firstAddress] + registers->Y;
+	if(address > 0xFF)
+		++cycles;
+	address = (memory[firstAddress+1] << 8) + address;
+	return memory[address];
+}
+
 void CPU::executeInstruction()
 {
-	uint8_t lowByte;
-	uint8_t highByte;
-	uint8_t operand;
-
 	switch(memory[registers->PC++])
 	{
 		case 0x69: //Immediate ADC
 		{
 			cycles = 2;
-			operand = readByte();
-			ADC(operand);
+			ADC(fetchImmediate());
 			break;
 		}
 		case 0x65: //Zero Page ADC
 		{
 			cycles = 3;
-			lowByte = readByte();
-			operand = memory[lowByte];
-			ADC(operand);
+			ADC(fetchZeroPage());
 			break;
 		}
 		case 0x75: //Zero Page,X ADC
 		{
 			cycles = 4;
-			lowByte = readByte();
-			lowByte += registers->X;
-			operand = memory[lowByte];
-			ADC(operand);
+			ADC(fetchZeroPageX());
 			break;
 		}
 		case 0x60: //Absolute ADC
 		{
 			cycles = 4;
-			lowByte = readByte();
-			highByte = readByte();
-			operand = memory[(highByte << 8) + lowByte];
-			ADC(operand);
+			ADC(fetchAbsolute());
 			break;
 		}
 		case 0x70: //Absolute,X ADC
 		{
 			cycles = 4;
-			lowByte = readByte();
-			highByte = readByte();
-			uint16_t temp = lowByte + registers->X;
-			if(temp > 0xFF)
-				++cycles;
-			uint16_t address = (highByte << 8) + temp;
-			operand = memory[address];
-			ADC(operand);
+			ADC(fetchAbsoluteX());
 			break;
 		}
 		case 0x79: //Absolute,Y ADC
 		{
 			cycles = 4;
-			lowByte = readByte();
-			highByte = readByte();
-			uint16_t temp = lowByte + registers->Y;
-			if(temp > 0xFF)
-				++cycles;
-			uint16_t address = (highByte << 8) + temp;
-			operand = memory[address];
-			ADC(operand);
+			ADC(fetchAbsoluteY());
 			break;
 		}
 		case 0x61: //Indirect,X ADC
 		{
 			cycles = 6;
-			lowByte = readByte();
-			uint8_t temp = 
+			ADC(fetchIndirectX());
+			break;
+		}
+		case 0x71: //Indirect,Y ADC
+		{
+			cycles = 5;
+			ADC(fetchIndirectY());
 			break;
 		}
 	}
@@ -227,7 +277,12 @@ void CPU::executeInstruction()
 
 void CPU::ADC(uint8_t operand)
 {
-
+	uint16_t temp = operand + registers->A + (if_carry() ? 1 : 0);
+	set_zero(temp & 0xFF);
+	set_sign(temp);
+	set_overflow(!((registers->A ^ operand) & 0x80) && ((registers->A ^ temp) & 0x80));
+	set_carry(temp > 0xFF);
+	registers->A = temp;
 }
 
 void CPU::CPU_TESTING()
