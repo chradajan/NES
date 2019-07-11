@@ -16,6 +16,7 @@ CPU::CPU(const char* file)
 	
 	memory[0x4017] = 0x00;
 	memory[0x4015] = 0x00;
+
 	for(int i = 0x4000; i <= 0x400F; ++i)
 		memory[i] = 0x00;
 	//TODO: Set Noise Channel to 0x0000
@@ -46,7 +47,7 @@ void CPU::loadROM(const char* file)
 		temp1 = convertAscii(temp1);
 		temp2 = convertAscii(temp2);
 
-		value = temp1*16 + temp2;
+		value = (temp1 << 4) + temp2;
 
 		memory[loc] = value;
 		++loc;
@@ -75,6 +76,11 @@ uint8_t CPU::convertAscii(uint8_t c)
 			return c - 87;
 		else
 			throw BadRom{};
+}
+
+uint8_t CPU::readByte()
+{
+	return memory[registers->PC++];
 }
 
 bool CPU::if_carry()
@@ -146,45 +152,89 @@ void CPU::executeInstruction()
 {
 	uint8_t lowByte;
 	uint8_t highByte;
-	uint16_t operand;
+	uint8_t operand;
 
 	switch(memory[registers->PC++])
 	{
 		case 0x69: //Immediate ADC
 		{
 			cycles = 2;
-			operand = memory[registers->PC++];
+			operand = readByte();
 			ADC(operand);
 			break;
 		}
-		case 0x65: //Zero Page
+		case 0x65: //Zero Page ADC
 		{
 			cycles = 3;
-			lowByte = memory[registers->PC++];
+			lowByte = readByte();
 			operand = memory[lowByte];
 			ADC(operand);
 			break;
 		}
-		case 0x75: //Zero Page, X
+		case 0x75: //Zero Page,X ADC
 		{
 			cycles = 4;
-			lowByte = memory[registers->PC++];
-			operand = lowByte + registers->X;
-
+			lowByte = readByte();
+			lowByte += registers->X;
+			operand = memory[lowByte];
+			ADC(operand);
+			break;
+		}
+		case 0x60: //Absolute ADC
+		{
+			cycles = 4;
+			lowByte = readByte();
+			highByte = readByte();
+			operand = memory[(highByte << 8) + lowByte];
+			ADC(operand);
+			break;
+		}
+		case 0x70: //Absolute,X ADC
+		{
+			cycles = 4;
+			lowByte = readByte();
+			highByte = readByte();
+			uint16_t temp = lowByte + registers->X;
+			if(temp > 0xFF)
+				++cycles;
+			uint16_t address = (highByte << 8) + temp;
+			operand = memory[address];
+			ADC(operand);
+			break;
+		}
+		case 0x79: //Absolute,Y ADC
+		{
+			cycles = 4;
+			lowByte = readByte();
+			highByte = readByte();
+			uint16_t temp = lowByte + registers->Y;
+			if(temp > 0xFF)
+				++cycles;
+			uint16_t address = (highByte << 8) + temp;
+			operand = memory[address];
+			ADC(operand);
+			break;
+		}
+		case 0x61: //Indirect,X ADC
+		{
+			cycles = 6;
+			lowByte = readByte();
+			uint8_t temp = 
+			break;
 		}
 	}
 }
 
-void CPU::ADC(uint16_t operand)
+void CPU::ADC(uint8_t operand)
 {
 
 }
 
 void CPU::CPU_TESTING()
 {
-	registers->P = 0b00000000;
-	std::cout << std::hex << (unsigned int)registers->P << std::endl;
-	uint16_t test = 0x1;
-	set_zero(test);
-	std::cout << std::hex << (unsigned int)registers->P << std::endl;
+	// registers->P = 0b00000000;
+	// std::cout << std::hex << (unsigned int)registers->P << std::endl;
+	// uint16_t test = 0x1;
+	// set_zero(test);
+	// std::cout << std::hex << (unsigned int)registers->P << std::endl;
 }

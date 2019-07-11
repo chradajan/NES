@@ -3,7 +3,8 @@
 
 int main()
 {
-	CPU cpu("DonkeyKong.txt");
+	//CPU cpu("DonkeyKong.txt");
+	CPU cpu("test.txt");
 	cpu.tick();
 	cpu.CPU_TESTING();
 

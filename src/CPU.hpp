@@ -31,6 +31,9 @@ private:
 	void loadROM(const char* file);
 	uint8_t convertAscii(uint8_t c);
 
+	//Utility
+	uint8_t readByte();
+
 	//Used to read/set status register bits
 	bool if_carry();
 	bool if_overflow();
@@ -46,7 +49,7 @@ private:
 	void executeInstruction();
 
 	//Instructions
-	void ADC(uint16_t operand);
+	void ADC(uint8_t operand);
 };
 
 #endif
