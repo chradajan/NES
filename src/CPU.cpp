@@ -21,11 +21,15 @@ CPU::CPU(const char* file)
 	loadROM(file);
 
 	registers.PC = Reset_Vector();
+	cycles = 0;
 }
 
 void CPU::tick()
 {
-	executeInstruction();
+	if(cycles == 0)
+		executeInstruction();
+	else
+		--cycles;
 }
 
 CPU::~CPU()
@@ -35,11 +39,8 @@ CPU::~CPU()
 void CPU::loadROM(const char* file)
 {
 	std::ifstream rom(file);
-
 	decodeHeader(rom);
-
 	loadNROM(rom);
-	
 	rom.close();
 }
 
@@ -57,13 +58,13 @@ uint8_t CPU::readByte(std::ifstream& rom)
 uint8_t CPU::convertAscii(uint8_t c)
 {
 	if(c >= 48 && c <= 57)
-			return c - 48;
-		else if(c >= 65 && c <= 70)
-			return c - 55;
-		else if(c >= 97 && c <= 102)
-			return c - 87;
-		else
-			throw BadRom{};
+		return c - 48;
+	else if(c >= 65 && c <= 70)
+		return c - 55;
+	else if(c >= 97 && c <= 102)
+		return c - 87;
+	else
+		throw BadRom{};
 }
 
 void CPU::decodeHeader(std::ifstream& rom)
@@ -1571,5 +1572,4 @@ void CPU::STORE(uint16_t operandAddress, uint8_t regValue)
 
 void CPU::CPU_TESTING()
 {
-
 }

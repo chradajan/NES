@@ -36,7 +36,7 @@ private:
 
 	HeaderData header;
 	CPU_Registers registers;
-	uint8_t memory[0xFFFF];
+	uint8_t memory[0x10000];
 
 	//ROM Loading
 	void loadROM(const char* file);

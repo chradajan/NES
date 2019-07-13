@@ -7,7 +7,5 @@ int main()
 	//CPU cpu("test.txt");
 	//cpu.tick();
 	cpu.CPU_TESTING();
-	cpu.tick();
-	cpu.CPU_TESTING();
 	return 0;
 }
