@@ -264,20 +264,29 @@ uint16_t CPU::fetchAbsoluteYAddress()
 	return address;
 }
 
+uint16_t CPU::fetchIndirectAddress()
+{
+	uint8_t highByte = readROM();
+	uint8_t lowByte = readROM();
+	uint16_t firstAddress = (highByte << 8) + lowByte;
+	uint16_t address = (readMEMORY(firstAddress + 1) << 8) + readMEMORY(firstAddress);
+	return address;
+}
+
 uint16_t CPU::fetchIndirectXAddress()
 {
 	uint8_t firstAddress = readROM() + registers.X;
-	uint16_t address = (memory[firstAddress + 1] << 8) + memory[firstAddress];
+	uint16_t address = (readMEMORY(firstAddress + 1) << 8) + readMEMORY(firstAddress);
 	return address;
 }
 
 uint16_t CPU::fetchIndirectYAddress()
 {
 	uint8_t firstAddress = readROM();
-	uint16_t address = memory[firstAddress] + registers.Y;
+	uint16_t address = readMEMORY(firstAddress) + registers.Y;
 	if(address > 0xFF)
 		++cycles;
-	address = (memory[firstAddress+1] << 8) + address;
+	address = (readMEMORY(firstAddress+1) << 8) + address;
 	return address;
 }
 
@@ -506,49 +515,217 @@ void CPU::executeInstruction()
 		case 0xC9: //Immediate CMP
 		{
 			cycles = 2;
-			CMP(readROM());
+			CMP(readROM(), registers.AC);
 			break;
 		}
 		case 0xC5: //Zero Page CMP
 		{
 			cycles = 3;
-			CMP(fetchZeroPageAddress());
+			CMP(fetchZeroPageAddress(), registers.AC);
 			break;
 		}
 		case 0xD5: //Zero Page,X CMP
 		{
 			cycles = 4;
-			CMP(fetchZeroPageXAddress());
+			CMP(fetchZeroPageXAddress(), registers.AC);
 			break;
 		}
 		case 0xCD: //Absolute CMP
 		{
 			cycles = 4;
-			CMP(fetchAbsoluteAddress());
+			CMP(fetchAbsoluteAddress(), registers.AC);
 			break;
 		}
 		case 0xDD: //Absolute,X CMP
 		{
 			cycles = 4;
-			CMP(fetchAbsoluteXAddress());
+			CMP(fetchAbsoluteXAddress(), registers.AC);
 			break;
 		}
 		case 0xD9: //Absolute,Y CMP
 		{
 			cycles = 4;
-			CMP(fetchAbsoluteYAddress());
+			CMP(fetchAbsoluteYAddress(), registers.AC);
 			break;
 		}
 		case 0xC1: //Indirect,X CMP
 		{
 			cycles = 6;
-			CMP(fetchIndirectXAddress());
+			CMP(fetchIndirectXAddress(), registers.AC);
 			break;
 		}
 		case 0xD1: //Indirect,Y CMP
 		{
 			cycles = 5;
-			CMP(fetchIndirectYAddress());
+			CMP(fetchIndirectYAddress(), registers.AC);
+			break;
+		}
+		case 0xE0: //Immediate CPX
+		{
+			cycles = 2;
+			CMP(readROM(), registers.X);
+			break;
+		}
+		case 0xE4: //Zero Page CPX
+		{
+			cycles = 3;
+			CMP(fetchZeroPageAddress(), registers.X);
+			break;
+		}
+		case 0xEC: //Absolute CPX
+		{
+			cycles = 4;
+			CMP(fetchAbsoluteAddress(), registers.X);
+			break;
+		}
+		case 0xC0: //Immediate CPY
+		{
+			cycles = 2;
+			CMP(readROM(), registers.Y);
+			break;
+		}
+		case 0xC4: //Zero Page CPY
+		{
+			cycles = 3;
+			CMP(fetchZeroPageAddress(), registers.Y);
+			break;
+		}
+		case 0xCC: //Absolute CPY
+		{
+			cycles = 4;
+			CMP(fetchAbsoluteAddress(), registers.Y);
+			break;
+		}
+		case 0xC6: //Zero Page DEC
+		{
+			DEC(fetchZeroPageAddress(), 5);
+			break;
+		}
+		case 0xD6: //Zero Page, X DEC
+		{
+			DEC(fetchZeroPageXAddress(), 6);
+			break;
+		}
+		case 0xCE: //Absolute DEC
+		{
+			DEC(fetchAbsoluteAddress(), 6);
+			break;
+		}
+		case 0xDE: //Absolute,X DEC
+		{
+			DEC(fetchAbsoluteXAddress(), 7);
+			break;
+		}
+		case 0xCA: //Implied DEX
+		{
+			cycles = 2;
+			--registers.X;
+			set_sign(registers.X);
+			set_zero(registers.X);
+			break;
+		}
+		case 0x88: //Implied DEY
+		{
+			cycles = 2;
+			--registers.Y;
+			set_sign(registers.Y);
+			set_zero(registers.Y);
+			break;
+		}
+		case 0x49: //Immediate EOR
+		{
+			cycles = 2;
+			EOR(readROM());
+			break;
+		}
+		case 0x45: //Zero Page EOR
+		{
+			cycles = 3;
+			EOR(fetchZeroPageAddress());
+			break;
+		}
+		case 0x55: //Zero Page,X EOR
+		{
+			cycles = 4;
+			EOR(fetchZeroPageXAddress());
+			break;
+		}
+		case 0x4D: //Absolute EOR
+		{
+			cycles = 4;
+			EOR(fetchAbsoluteAddress());
+			break;
+		}
+		case 0x5D: //Absolute,X EOR
+		{
+			cycles = 4;
+			EOR(fetchAbsoluteXAddress());
+			break;
+		}
+		case 0x59: //Absolute,Y EOR
+		{
+			cycles = 4;
+			EOR(fetchAbsoluteYAddress());
+			break;
+		}
+		case 0x41: //Indirect,X EOR
+		{
+			cycles = 6;
+			EOR(fetchIndirectXAddress());
+			break;
+		}
+		case 0x51: //Indrect,Y EOR
+		{
+			cycles = 5;
+			EOR(fetchIndirectYAddress());
+			break;
+		}
+		case 0xE6: //Zero Page INC
+		{
+			INC(fetchZeroPageAddress(), 5);
+			break;
+		}
+		case 0xF6: //Zero Page, X INC
+		{
+			INC(fetchZeroPageXAddress(), 6);
+			break;
+		}
+		case 0xEE: //Absolute INC
+		{
+			INC(fetchAbsoluteAddress(), 6);
+			break;
+		}
+		case 0xFE: //Absolute,X INC
+		{
+			INC(fetchAbsoluteXAddress(), 7);
+			break;
+		}
+		case 0xE8: //Implied INX
+		{
+			cycles = 2;
+			++registers.X;
+			set_sign(registers.X);
+			set_zero(registers.X);
+			break;
+		}
+		case 0xC8: //Implied INY
+		{
+			cycles = 2;
+			++registers.Y;
+			set_sign(registers.Y);
+			set_zero(registers.Y);
+			break;
+		}
+		case 0x4C: //Absolute JMP
+		{
+			cycles = 3;
+			registers.PC = fetchAbsoluteAddress();
+			break;
+		}
+		case 0x6C: //Indirect JMP
+		{
+			cycles = 5;
+			registers.PC = fetchIndirectAddress();
 			break;
 		}
 	}
@@ -643,23 +820,63 @@ void CPU::BRANCH(bool condition)
 	}
 }
 
-void CPU::CMP(uint8_t operand)
+void CPU::CMP(uint8_t operand, uint8_t regValue)
 {
-	uint16_t result = registers.AC - operand;
+	uint16_t result = regValue - operand;
 	set_carry(result < 0x100);
 	set_sign(result);
 	set_zero(result & 0xFF);
 }
 
-void CPU::CMP(uint16_t operandAddress)
+void CPU::CMP(uint16_t operandAddress, uint8_t regValue)
 {
 	uint8_t operand = readMEMORY(operandAddress);
-	uint16_t result = registers.AC - operand;
+	uint16_t result = regValue - operand;
 	set_carry(result < 0x100);
 	set_sign(result);
 	set_zero(result & 0xFF);
+}
+
+void CPU::DEC(uint16_t operandAddress, int cycleCount)
+{
+	//TODO: test without creating 16 bit operand
+	cycles = cycleCount;
+	int16_t operand = readMEMORY(operandAddress);
+	--operand;
+	uint8_t newValue = operand & 0xFF;
+	set_sign(newValue);
+	set_zero(newValue);
+	writeMEMORY(operandAddress, newValue);
+}
+
+void CPU::EOR(uint8_t operand)
+{
+	operand ^= registers.AC;
+	set_sign(operand);
+	set_zero(operand);
+	registers.AC = operand;
+}
+
+void CPU::EOR(uint16_t operandAddress)
+{
+	uint8_t operand = readMEMORY(operandAddress);
+	operand ^= registers.AC;
+	set_sign(operand);
+	set_zero(operand);
+	registers.AC = operand;
+}
+
+void CPU::INC(uint16_t operandAddress, int cycleCount)
+{
+	cycles = cycleCount;
+	uint8_t operand = readMEMORY(operandAddress);
+	++operand;
+	set_sign(operand);
+	set_zero(operand);
+	writeMEMORY(operandAddress, operand);
 }
 
 void CPU::CPU_TESTING()
 {
+	std::cout << std::hex << (int)registers.X << std::endl;
 }

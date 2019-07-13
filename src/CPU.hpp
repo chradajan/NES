@@ -62,6 +62,7 @@ private:
 	uint16_t fetchAbsoluteAddress();
 	uint16_t fetchAbsoluteXAddress();
 	uint16_t fetchAbsoluteYAddress();
+	uint16_t fetchIndirectAddress();
 	uint16_t fetchIndirectXAddress();
 	uint16_t fetchIndirectYAddress();
 
@@ -79,8 +80,12 @@ private:
 	void ASL(uint16_t operandAddress);
 	void BIT(uint16_t operandAddress);
 	void BRANCH(bool condition);
-	void CMP(uint8_t operand);
-	void CMP(uint16_t operandAddress);
+	void CMP(uint8_t operand, uint8_t regValue);
+	void CMP(uint16_t operandAddress, uint8_t regValue);
+	void DEC(uint16_t operandAddress, int cycleCount);
+	void EOR(uint8_t operand);
+	void EOR(uint16_t operandAddress);
+	void INC(uint16_t operandAddress, int cycleCount);
 };
 
 #endif
