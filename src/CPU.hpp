@@ -1,6 +1,8 @@
 #ifndef CPU_H
 #define CPU_H
 #include <cstdint>
+#include <fstream>
+#include "Formats.hpp"
 
 class CPU
 {	
@@ -13,7 +15,14 @@ public:
 
 private:
 
-	short unsigned int cycles;
+	uint8_t cycles;
+
+	struct HeaderData
+	{
+		uint8_t PRG_ROM_SIZE;
+		uint8_t CHR_ROM_SIZE;
+		uint8_t Flags6, Flags7, Flags8, Flags9, Flags10;
+	};
 
 	struct CPU_Registers
 	{
@@ -25,11 +34,16 @@ private:
 		uint8_t SR;		//Status
 	};
 
+	HeaderData header;
 	CPU_Registers registers;
 	uint8_t memory[0xFFFF];
 
+	//ROM Loading
 	void loadROM(const char* file);
+	uint8_t readByte(std::ifstream& rom);
 	uint8_t convertAscii(uint8_t c);
+	void decodeHeader(std::ifstream& rom);
+	void loadNROM(std::ifstream& rom);
 
 	//Mapper
 	uint16_t mapPC();
@@ -70,6 +84,9 @@ private:
 
 	//Utility
 	uint16_t relativeAddress(uint8_t offset);
+	uint16_t NMI_Vector();
+	uint16_t Reset_Vector();
+	uint16_t IRQ_BRK_Vector();
 
 	//Instructions
 	void ADC(uint8_t operand);

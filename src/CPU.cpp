@@ -1,7 +1,7 @@
 #include "CPU.hpp"
 #include "Exceptions.hpp"
 #include <iostream>
-#include <fstream>
+#include <cassert>
 
 CPU::CPU(const char* file)
 {
@@ -10,18 +10,17 @@ CPU::CPU(const char* file)
 	registers.X = 0;
 	registers.Y = 0;
 	registers.SP = 0xFD;
-	registers.PC = 0; //This might need to be changed based on mapper
 	
 	memory[0x4017] = 0x00;
 	memory[0x4015] = 0x00;
-
-	memory[0x0069] = 0x69; //For testing purposes
 
 	for(int i = 0x4000; i <= 0x400F; ++i)
 		memory[i] = 0x00;
 	//TODO: Set Noise Channel to 0x0000
 
 	loadROM(file);
+
+	registers.PC = Reset_Vector();
 }
 
 void CPU::tick()
@@ -35,34 +34,24 @@ CPU::~CPU()
 
 void CPU::loadROM(const char* file)
 {
-	uint16_t loc = 0x8000;
 	std::ifstream rom(file);
-	uint8_t temp1, temp2;
-	uint8_t value;
 
-	while(rom >> std::hex >> temp1)
-	{
-		rom >> std::hex >> temp2;
-		temp1 = convertAscii(temp1);
-		temp2 = convertAscii(temp2);
+	decodeHeader(rom);
 
-		value = (temp1 << 4) + temp2;
-
-		memory[loc] = value;
-		++loc;
-	}
-
-	if(loc <= 0xBFFF)
-	{
-		uint16_t mirrorLoc = 0xC000;
-		for(uint16_t i = 0x8000; i <= loc; ++i)
-		{
-			memory[mirrorLoc] = memory[i];
-			++mirrorLoc;
-		}
-	}
+	loadNROM(rom);
 	
 	rom.close();
+}
+
+uint8_t CPU::readByte(std::ifstream& rom)
+{
+	uint8_t temp1, temp2, value;
+	rom >> std::hex >> temp1;
+	rom >> std::hex >> temp2;
+	temp1 = convertAscii(temp1);
+	temp2 = convertAscii(temp2);
+	value = (temp1 << 4) + temp2;
+	return value;
 }
 
 uint8_t CPU::convertAscii(uint8_t c)
@@ -77,9 +66,54 @@ uint8_t CPU::convertAscii(uint8_t c)
 			throw BadRom{};
 }
 
+void CPU::decodeHeader(std::ifstream& rom)
+{
+	uint8_t value;
+	uint32_t headerCheck = 0;
+
+	for(int i = 0; i < 4; ++i)
+	{
+		value = readByte(rom);
+		headerCheck = (headerCheck << 8) + value;
+	}
+
+	assert(headerCheck == 0x4E45531A);
+	header.PRG_ROM_SIZE = readByte(rom);
+	header.CHR_ROM_SIZE = readByte(rom);
+	header.Flags6 = readByte(rom);
+	header.Flags7 = readByte(rom);
+	header.Flags8 = readByte(rom);
+	header.Flags9 = readByte(rom);
+	header.Flags10 = readByte(rom);
+
+	for(int i = 0; i < 5; ++i)
+		readByte(rom);
+}
+
+void CPU::loadNROM(std::ifstream& rom)
+{
+	uint8_t data;
+	if(header.PRG_ROM_SIZE == 0x01)
+	{
+		for(uint16_t loc = 0x8000; loc <= 0xBFFF; ++loc)
+		{
+			data = readByte(rom);
+			memory[loc] = data;
+			memory[loc + 0x4000] = data;
+		}
+	}
+	else
+	{
+		for(uint16_t loc = 0x8000; loc >= 0x8000; ++loc)
+		{
+			memory[loc] = readByte(rom);
+		}
+	}
+}
+
 uint16_t CPU::mapPC()
 {
-	return registers.PC + 0x8000;
+	return registers.PC;
 }
 
 uint8_t CPU::readMEMORY(uint16_t address)
@@ -1249,6 +1283,30 @@ uint16_t CPU::relativeAddress(uint8_t offset)
 	return registers.PC + offset;
 }
 
+uint16_t CPU::NMI_Vector()
+{
+	uint8_t lowByte = memory[0xFFFA];
+	uint8_t highByte = memory[0xFFFB];
+	uint16_t vector = (highByte << 8) + lowByte;
+	return vector;
+}
+
+uint16_t CPU::Reset_Vector()
+{
+	uint8_t lowByte = memory[0xFFFC];
+	uint8_t highByte = memory[0xFFFD];
+	uint16_t vector = (highByte << 8) + lowByte;
+	return vector;
+}
+
+uint16_t CPU::IRQ_BRK_Vector()
+{
+	uint8_t lowByte = memory[0xFFFE];
+	uint8_t highByte = memory[0xFFFF];
+	uint16_t vector = (highByte << 8) + lowByte;
+	return vector;
+}
+
 void CPU::ADC(uint8_t operand)
 {
 	uint16_t temp = operand + registers.AC + (if_carry() ? 1 : 0);
@@ -1509,8 +1567,9 @@ void CPU::SBC(uint16_t operandAddress)
 void CPU::STORE(uint16_t operandAddress, uint8_t regValue)
 {
 	writeMEMORY(operandAddress, regValue);
-} 
+}
 
 void CPU::CPU_TESTING()
 {
+
 }
