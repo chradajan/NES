@@ -96,6 +96,9 @@ private:
 	void ROL(uint16_t operandAddress);
 	void ROR(uint8_t operand);
 	void ROR(uint16_t operandAddress);
+	void SBC(uint8_t operand);
+	void SBC(uint16_t operandAddress);
+	void STORE(uint16_t operandAddress, uint8_t regValue);
 };
 
 #endif

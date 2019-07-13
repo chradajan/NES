@@ -1044,6 +1044,196 @@ void CPU::executeInstruction()
 			registers.PC = pc;
 			break;
 		}
+		case 0xE9: //Immediate SBC
+		{
+			cycles = 2;
+			SBC(readROM());
+			break;
+		}
+		case 0xE5: //Zero Page SBC
+		{
+			cycles = 3;
+			SBC(fetchZeroPageAddress());
+			break;
+		}
+		case 0xF5: //Zero Page,X SBC
+		{
+			cycles = 4;
+			SBC(fetchZeroPageXAddress());
+			break;
+		}
+		case 0xED: //Absolute SBC
+		{
+			cycles = 4;
+			SBC(fetchAbsoluteAddress());
+			break;
+		}
+		case 0xFD: //Absolute,X SBC
+		{
+			cycles = 4;
+			SBC(fetchAbsoluteXAddress());
+			break;
+		}
+		case 0xF9: //Absolute,Y SBC
+		{
+			cycles = 4;
+			SBC(fetchAbsoluteYAddress());
+			break;
+		}
+		case 0xE1: //Indirect,X SBC
+		{
+			cycles = 6;
+			SBC(fetchIndirectXAddress());
+			break;
+		}
+		case 0xF1: //Indirect,Y SBC
+		{
+			cycles = 5;
+			SBC(fetchIndirectYAddress(false));
+			break;
+		}
+		case 0x38: //Implied SEC
+		{
+			cycles = 2;
+			set_carry(1);
+			break;
+		}
+		case 0xF8: //Implied SED
+		{
+			cycles = 2;
+			set_decimal(1);
+			break;
+		}
+		case 0x78: //Implied SEI
+		{
+			cycles = 2;
+			set_interrupt(1);
+			break;
+		}
+		case 0x85: //Zero Page STA
+		{
+			cycles = 3;
+			STORE(fetchZeroPageAddress(), registers.AC);
+			break;
+		}
+		case 0x95: //Zero Page,X STA
+		{
+			cycles = 4;
+			STORE(fetchZeroPageXAddress(), registers.AC);
+			break;
+		}
+		case 0x80: //Absolute STA
+		{
+			cycles = 4;
+			STORE(fetchAbsoluteAddress(), registers.AC);
+			break;
+		}
+		case 0x9D: //Absolute,X STA
+		{
+			cycles = 5;
+			STORE(fetchAbsoluteXAddress(false), registers.AC);
+			break;
+		}
+		case 0x99: //Absolute,Y STA
+		{
+			cycles = 5;
+			STORE(fetchAbsoluteYAddress(false), registers.AC);
+			break;
+		}
+		case 0x81: //Indirect,X STA
+		{
+			cycles = 6;
+			STORE(fetchIndirectXAddress(), registers.AC);
+			break;
+		}
+		case 0x91: //Indirect,Y STA
+		{
+			cycles = 6;
+			STORE(fetchIndirectYAddress(false), registers.AC);
+			break;
+		}
+		case 0x86: //Zero Page STX
+		{
+			cycles = 3;
+			STORE(fetchZeroPageAddress(), registers.X);
+			break;
+		}
+		case 0x96: //Zero Page,Y STX
+		{
+			cycles = 4;
+			STORE(fetchZeroPageYAddress(), registers.X);
+			break;
+		}
+		case 0x8E: //Absolute STX
+		{
+			cycles = 4;
+			STORE(fetchAbsoluteAddress(), registers.X);
+			break;
+		}
+		case 0x84: //Zero Page STY
+		{
+			cycles = 3;
+			STORE(fetchZeroPageAddress(), registers.Y);
+			break;
+		}
+		case 0x94: //Zero Page,Y STY
+		{
+			cycles = 4;
+			STORE(fetchZeroPageYAddress(), registers.Y);
+			break;
+		}
+		case 0x8C: //Absolute STY
+		{
+			cycles = 4;
+			STORE(fetchAbsoluteAddress(), registers.Y);
+			break;
+		}
+		case 0xAA: //Implied TAX
+		{
+			cycles = 2;
+			set_sign(registers.AC);
+			set_zero(registers.AC);
+			registers.X = registers.AC;
+			break;
+		}
+		case 0xA8: //Implied TAY
+		{
+			cycles = 2;
+			set_sign(registers.AC);
+			set_zero(registers.AC);
+			registers.Y = registers.AC;
+			break;
+		}
+		case 0xBA: //Implied TSX
+		{
+			cycles = 2;
+			set_sign(registers.SP);
+			set_zero(registers.SP);
+			registers.X = registers.SP;
+			break;
+		}
+		case 0x8A: //Implied TXA
+		{
+			cycles = 2;
+			set_sign(registers.X);
+			set_zero(registers.X);
+			registers.AC = registers.X;
+			break;
+		}
+		case 0x9A: //Implied TXS
+		{
+			cycles = 2;
+			registers.SP = registers.X;
+			break;
+		}
+		case 0x98: //Implied TYA
+		{
+			cycles = 2;
+			set_sign(registers.Y);
+			set_zero(registers.Y);
+			registers.AC = registers.Y;
+			break;
+		}
 	}
 }
 
@@ -1294,6 +1484,32 @@ void CPU::ROR(uint16_t operandAddress)
 	set_zero(operand);
 	writeMEMORY(operandAddress, operand);
 }
+
+void CPU::SBC(uint8_t operand)
+{
+	uint16_t temp = registers.AC - operand - (if_carry() ? 0 : 1);
+	set_sign(temp);
+	set_zero(temp & 0xFF);
+	set_overflow(((registers.AC ^ temp) & 0x80) && ((registers.AC ^ operand) & 0x80));
+	set_carry(temp < 0x100);
+	registers.AC = (temp & 0xFF);
+}
+
+void CPU::SBC(uint16_t operandAddress)
+{
+	uint8_t operand = readMEMORY(operandAddress);
+	uint16_t temp = registers.AC - operand - (if_carry() ? 0 : 1);
+	set_sign(temp);
+	set_zero(temp & 0xFF);
+	set_overflow(((registers.AC ^ temp) & 0x80) && ((registers.AC ^ operand) & 0x80));
+	set_carry(temp < 0x100);
+	registers.AC = (temp & 0xFF);
+}
+
+void CPU::STORE(uint16_t operandAddress, uint8_t regValue)
+{
+	writeMEMORY(operandAddress, regValue);
+} 
 
 void CPU::CPU_TESTING()
 {
