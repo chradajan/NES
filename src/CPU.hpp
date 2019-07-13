@@ -60,11 +60,11 @@ private:
 	uint16_t fetchZeroPageXAddress();
 	uint16_t fetchZeroPageYAddress();
 	uint16_t fetchAbsoluteAddress();
-	uint16_t fetchAbsoluteXAddress();
-	uint16_t fetchAbsoluteYAddress();
+	uint16_t fetchAbsoluteXAddress(bool addCycle);
+	uint16_t fetchAbsoluteYAddress(bool addCycle);
 	uint16_t fetchIndirectAddress();
 	uint16_t fetchIndirectXAddress();
-	uint16_t fetchIndirectYAddress();
+	uint16_t fetchIndirectYAddress(bool addCycle);
 
 	void executeInstruction();
 
@@ -82,10 +82,20 @@ private:
 	void BRANCH(bool condition);
 	void CMP(uint8_t operand, uint8_t regValue);
 	void CMP(uint16_t operandAddress, uint8_t regValue);
-	void DEC(uint16_t operandAddress, int cycleCount);
+	void DEC(uint16_t operandAddress);
 	void EOR(uint8_t operand);
 	void EOR(uint16_t operandAddress);
-	void INC(uint16_t operandAddress, int cycleCount);
+	void INC(uint16_t operandAddress);
+	void LOAD(uint8_t operand, uint8_t& reg);
+	void LOAD(uint16_t operandAddress, uint8_t& reg);
+	void LSR(uint8_t operand);
+	void LSR(uint16_t operandAddress);
+	void ORA(uint8_t operand);
+	void ORA(uint16_t operandAddress);
+	void ROL(uint8_t operand);
+	void ROL(uint16_t operandAddress);
+	void ROR(uint8_t operand);
+	void ROR(uint16_t operandAddress);
 };
 
 #endif

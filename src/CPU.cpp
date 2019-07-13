@@ -139,7 +139,7 @@ uint8_t CPU::pop()
 void CPU::push(uint8_t data)
 {
 	writeMEMORY(registers.SP, data);
-	++registers.SP;
+	--registers.SP;
 }
 
 bool CPU::if_carry()
@@ -242,23 +242,23 @@ uint16_t CPU::fetchAbsoluteAddress()
 	return address;
 }
 
-uint16_t CPU::fetchAbsoluteXAddress()
+uint16_t CPU::fetchAbsoluteXAddress(bool addCycle = true)
 {
 	uint8_t lowByte = readROM();
 	uint8_t highByte = readROM();
 	uint16_t temp = lowByte + registers.X;
-	if(temp > 0xFF)
+	if(temp > 0xFF && addCycle)
 		++cycles;
 	uint16_t address = (highByte << 8) + temp;
 	return address;
 }
 
-uint16_t CPU::fetchAbsoluteYAddress()
+uint16_t CPU::fetchAbsoluteYAddress(bool addCycle = true)
 {
 	uint8_t lowByte = readROM();
 	uint8_t highByte = readROM();
 	uint16_t temp = lowByte + registers.Y;
-	if(temp > 0xFF)
+	if(temp > 0xFF && addCycle)
 		++cycles;
 	uint16_t address = (highByte << 8) + temp;
 	return address;
@@ -280,11 +280,11 @@ uint16_t CPU::fetchIndirectXAddress()
 	return address;
 }
 
-uint16_t CPU::fetchIndirectYAddress()
+uint16_t CPU::fetchIndirectYAddress(bool addCycle = true)
 {
 	uint8_t firstAddress = readROM();
 	uint16_t address = readMEMORY(firstAddress) + registers.Y;
-	if(address > 0xFF)
+	if(address > 0xFF && addCycle)
 		++cycles;
 	address = (readMEMORY(firstAddress+1) << 8) + address;
 	return address;
@@ -598,22 +598,26 @@ void CPU::executeInstruction()
 		}
 		case 0xC6: //Zero Page DEC
 		{
-			DEC(fetchZeroPageAddress(), 5);
+			cycles = 5;
+			DEC(fetchZeroPageAddress());
 			break;
 		}
 		case 0xD6: //Zero Page, X DEC
 		{
-			DEC(fetchZeroPageXAddress(), 6);
+			cycles = 6;
+			DEC(fetchZeroPageXAddress());
 			break;
 		}
 		case 0xCE: //Absolute DEC
 		{
-			DEC(fetchAbsoluteAddress(), 6);
+			cycles = 6;
+			DEC(fetchAbsoluteAddress());
 			break;
 		}
 		case 0xDE: //Absolute,X DEC
 		{
-			DEC(fetchAbsoluteXAddress(), 7);
+			cycles = 7;
+			DEC(fetchAbsoluteXAddress(false));
 			break;
 		}
 		case 0xCA: //Implied DEX
@@ -682,22 +686,26 @@ void CPU::executeInstruction()
 		}
 		case 0xE6: //Zero Page INC
 		{
-			INC(fetchZeroPageAddress(), 5);
+			cycles = 5;
+			INC(fetchZeroPageAddress());
 			break;
 		}
 		case 0xF6: //Zero Page, X INC
 		{
-			INC(fetchZeroPageXAddress(), 6);
+			cycles = 6;
+			INC(fetchZeroPageXAddress());
 			break;
 		}
 		case 0xEE: //Absolute INC
 		{
-			INC(fetchAbsoluteAddress(), 6);
+			cycles = 6;
+			INC(fetchAbsoluteAddress());
 			break;
 		}
 		case 0xFE: //Absolute,X INC
 		{
-			INC(fetchAbsoluteXAddress(), 7);
+			cycles = 7;
+			INC(fetchAbsoluteXAddress(false));
 			break;
 		}
 		case 0xE8: //Implied INX
@@ -726,6 +734,314 @@ void CPU::executeInstruction()
 		{
 			cycles = 5;
 			registers.PC = fetchIndirectAddress();
+			break;
+		}
+		case 0x20: //Absolute JSR
+		{
+			cycles = 6;
+			uint16_t address = fetchAbsoluteAddress();
+			--registers.PC;
+			push((registers.PC >> 8) & 0xFF);
+			push(registers.PC & 0xFF);
+			registers.PC = address;
+			break;
+		}
+		case 0xA9: //Immediate LDA
+		{
+			cycles = 2;
+			LOAD(readROM(), registers.AC);
+			break;
+		}
+		case 0xA5: //Zero Page LDA
+		{
+			cycles = 3;
+			LOAD(fetchZeroPageAddress(), registers.AC);
+			break;
+		}
+		case 0xB5: //Zero Page,X LDA
+		{
+			cycles = 4;
+			LOAD(fetchZeroPageXAddress(), registers.AC);
+			break;
+		}
+		case 0xAD: //Absolute LDA
+		{
+			cycles = 4;
+			LOAD(fetchAbsoluteAddress(), registers.AC);
+			break;
+		}
+		case 0xBD: //Absolute,X LDA
+		{
+			cycles = 4;
+			LOAD(fetchAbsoluteXAddress(), registers.AC);
+			break;
+		}
+		case 0xB9: //Absolute,Y LDA
+		{
+			cycles = 4;
+			LOAD(fetchAbsoluteYAddress(), registers.AC);
+			break;
+		}
+		case 0xA1: //Indirect,X LDA
+		{
+			cycles = 6;
+			LOAD(fetchIndirectXAddress(), registers.AC);
+			break;
+		}
+		case 0xB1: //Indirect,Y LDA
+		{
+			cycles = 5;
+			LOAD(fetchIndirectYAddress(), registers.AC);
+			break;
+		}
+		case 0xA2: //Immediate LDX
+		{
+			cycles = 2;
+			LOAD(readROM(), registers.X);
+			break;
+		}
+		case 0xA6: //Zero Page LDX
+		{
+			cycles = 3;
+			LOAD(fetchZeroPageAddress(), registers.X);
+			break;
+		}
+		case 0xB6: //Zero Page,Y LDX
+		{
+			cycles = 4;
+			LOAD(fetchZeroPageYAddress(), registers.X);
+			break;
+		}
+		case 0xAE: //Absolute LDX
+		{
+			cycles = 4;
+			LOAD(fetchAbsoluteAddress(), registers.X);
+			break;
+		}
+		case 0xBE: //Absolute,Y LDX
+		{
+			cycles = 4;
+			LOAD(fetchAbsoluteYAddress(), registers.X);
+			break;
+		}
+		case 0xA0: //Immediate LDY
+		{
+			cycles = 2;
+			LOAD(readROM(), registers.Y);
+			break;
+		}
+		case 0xA4: //Zero Page LDY
+		{
+			cycles = 3;
+			LOAD(fetchZeroPageAddress(), registers.Y);
+			break;
+		}
+		case 0xB4: //Zero Page,X LDY
+		{
+			cycles = 4;
+			LOAD(fetchZeroPageYAddress(), registers.Y);
+			break;
+		}
+		case 0xAC: //Absolute LDY
+		{
+			cycles = 4;
+			LOAD(fetchAbsoluteAddress(), registers.Y);
+			break;
+		}
+		case 0xBC: //Absolute,X LDY
+		{
+			cycles = 4;
+			LOAD(fetchAbsoluteYAddress(), registers.Y);
+			break;
+		}
+		case 0x4A: //Accumulator LSR
+		{
+			cycles = 2;
+			LSR(registers.AC);
+			break;
+		}
+		case 0x46: //Zero Page LSR
+		{
+			cycles = 5;
+			LSR(fetchZeroPageAddress());
+			break;
+		}
+		case 0x56: //Zero Page,X LSR
+		{
+			cycles = 6;
+			LSR(fetchZeroPageXAddress());
+			break;
+		}
+		case 0x4E: //Absolute LSR
+		{
+			cycles = 6;
+			LSR(fetchAbsoluteAddress());
+			break;
+		}
+		case 0x5E: //Absolute,X LSR
+		{
+			cycles = 7;
+			LSR(fetchAbsoluteXAddress(false));
+			break;
+		}
+		case 0xEA: //Implied NOP
+		{
+			cycles = 2;
+			break;
+		}
+		case 0x09: //Immediate ORA
+		{
+			cycles = 2;
+			ORA(readROM());
+			break;
+		}
+		case 0x05: //Zero Page ORA
+		{
+			cycles = 3;
+			ORA(fetchZeroPageAddress());
+			break;
+		}
+		case 0x15: //Zero Page,X ORA
+		{
+			cycles = 4;
+			ORA(fetchZeroPageXAddress());
+			break;
+		}
+		case 0x0D: //Absolute ORA
+		{
+			cycles = 4;
+			ORA(fetchAbsoluteAddress());
+			break;
+		}
+		case 0x1D: //Absolute,X ORA
+		{
+			cycles = 4;
+			ORA(fetchAbsoluteXAddress());
+			break;
+		}
+		case 0x19: //Absolute,Y ORA
+		{
+			cycles = 4;
+			ORA(fetchAbsoluteYAddress());
+			break;
+		}
+		case 0x01: //Indirect,X ORA
+		{
+			cycles = 6;
+			ORA(fetchIndirectXAddress());
+			break;
+		}
+		case 0x11: //Indirect,Y ORA
+		{
+			cycles = 5;
+			ORA(fetchIndirectYAddress(false));
+			break;
+		}
+		case 0x48: //Implied PHA
+		{
+			cycles = 3;
+			push(registers.AC);
+			break;
+		}
+		case 0x08: //Implied PHP
+		{
+			cycles = 3;
+			push(registers.SR);
+			break;
+		}
+		case 0x68: //Implied PLA
+		{
+			cycles = 4;
+			registers.AC = pop();
+			set_sign(registers.AC);
+			set_zero(registers.AC);
+			break;
+		}
+		case 0x28: //Implied PLP
+		{
+			cycles = 4;
+			registers.SR = pop();
+			break;
+		}
+		case 0x2A: //Accumulator ROL
+		{
+			cycles = 2;
+			ROL(registers.AC);
+			break;
+		}
+		case 0x26: //Zero Page ROL
+		{
+			cycles = 5;
+			ROL(fetchZeroPageAddress());
+			break;
+		}
+		case 0x36: //Zero Page,X ROL
+		{
+			cycles = 6;
+			ROL(fetchZeroPageXAddress());
+			break;
+		}
+		case 0x2E: //Absolute ROL
+		{
+			cycles = 6;
+			ROL(fetchAbsoluteAddress());
+			break;
+		}
+		case 0x3E: //Absolute,X ROL
+		{
+			cycles = 7;
+			ROL(fetchAbsoluteXAddress(false));
+			break;
+		}
+		case 0x6A: //Accumulator ROR
+		{
+			cycles = 2;
+			ROR(registers.AC);
+			break;
+		}
+		case 0x66: //Zero Page ROR
+		{
+			cycles = 5;
+			ROR(fetchZeroPageAddress());
+			break;
+		}
+		case 0x76: //Zero Page,X ROR
+		{
+			cycles = 6;
+			ROR(fetchZeroPageXAddress());
+			break;
+		}
+		case 0x6E: //Absolute ROR
+		{
+			cycles = 6;
+			ROR(fetchAbsoluteAddress());
+			break;
+		}
+		case 0x7E: //Absolute,X ROR
+		{
+			cycles = 7;
+			ROR(fetchAbsoluteXAddress(false));
+			break;
+		}
+		case 0x40: //Implied RTI
+		{
+			cycles = 6;
+			uint8_t sr = pop();
+			registers.SR = sr;
+			uint8_t lowByte = pop();
+			uint8_t highByte = pop();
+			uint16_t pc = (highByte << 8) + lowByte;
+			registers.PC = pc;
+			break;
+		}
+		case 0x60: //Implied RTS
+		{
+			cycles = 6;
+			uint8_t lowByte = pop();
+			uint8_t highByte = pop();
+			uint16_t pc = (highByte << 8) + lowByte;
+			++pc;
+			registers.PC = pc;
 			break;
 		}
 	}
@@ -837,10 +1153,9 @@ void CPU::CMP(uint16_t operandAddress, uint8_t regValue)
 	set_zero(result & 0xFF);
 }
 
-void CPU::DEC(uint16_t operandAddress, int cycleCount)
+void CPU::DEC(uint16_t operandAddress)
 {
 	//TODO: test without creating 16 bit operand
-	cycles = cycleCount;
 	int16_t operand = readMEMORY(operandAddress);
 	--operand;
 	uint8_t newValue = operand & 0xFF;
@@ -866,9 +1181,8 @@ void CPU::EOR(uint16_t operandAddress)
 	registers.AC = operand;
 }
 
-void CPU::INC(uint16_t operandAddress, int cycleCount)
+void CPU::INC(uint16_t operandAddress)
 {
-	cycles = cycleCount;
 	uint8_t operand = readMEMORY(operandAddress);
 	++operand;
 	set_sign(operand);
@@ -876,7 +1190,111 @@ void CPU::INC(uint16_t operandAddress, int cycleCount)
 	writeMEMORY(operandAddress, operand);
 }
 
+void CPU::LOAD(uint8_t operand, uint8_t& reg)
+{
+	set_sign(operand);
+	set_zero(operand);
+	reg = operand;
+}
+
+void CPU::LOAD(uint16_t operandAddress, uint8_t& reg)
+{
+	uint8_t operand = readMEMORY(operandAddress);
+	set_sign(operand);
+	set_zero(operand);
+	reg = operand;
+}
+
+void CPU::LSR(uint8_t operand)
+{
+	set_carry(operand & 0x01);
+	operand >>= 1;
+	set_sign(operand);
+	set_zero(operand);
+	registers.AC = operand;
+}
+
+void CPU::LSR(uint16_t operandAddress)
+{
+	uint8_t operand = readMEMORY(operandAddress);
+	set_carry(operand & 0x01);
+	operand >>= 1;
+	set_sign(operand);
+	set_zero(operand);
+	writeMEMORY(operandAddress, operand);
+}
+
+void CPU::ORA(uint8_t operand)
+{
+	operand |= registers.AC;
+	set_sign(operand);
+	set_zero(operand);
+	registers.AC = operand;
+}
+
+void CPU::ORA(uint16_t operandAddress)
+{
+	uint8_t operand = readMEMORY(operandAddress);
+	operand |= registers.AC;
+	set_sign(operand);
+	set_zero(operand);
+	registers.AC = operand;
+}
+
+void CPU::ROL(uint8_t operand)
+{
+	uint16_t temp = operand;
+	temp <<= 1;
+	if(if_carry())
+		temp |= 0x01;
+	set_carry(temp > 0xFF);
+	operand = temp & 0xFF;
+	set_sign(operand);
+	set_zero(operand);
+	registers.AC = operand;
+}
+
+void CPU::ROL(uint16_t operandAddress)
+{
+	uint8_t operand = readMEMORY(operandAddress);
+	uint16_t temp = operand;
+	temp <<= 1;
+	if(if_carry())
+		temp |= 0x01;
+	set_carry(temp > 0xFF);
+	operand = temp & 0xFF;
+	set_sign(operand);
+	set_zero(operand);
+	writeMEMORY(operandAddress, operand);
+}
+
+void CPU::ROR(uint8_t operand)
+{
+	uint16_t temp = operand;
+	if(if_carry())
+		temp |= 0x100;
+	set_carry(temp & 0x01);
+	temp >>= 1;
+	operand = temp & 0xFF;
+	set_sign(operand);
+	set_zero(operand);
+	registers.AC = operand;
+}
+
+void CPU::ROR(uint16_t operandAddress)
+{
+	uint8_t operand = readMEMORY(operandAddress);
+	uint16_t temp = operand;
+	if(if_carry())
+		temp |= 0x100;
+	set_carry(temp & 0x01);
+	temp >>= 1;
+	operand = temp & 0xFF;
+	set_sign(operand);
+	set_zero(operand);
+	writeMEMORY(operandAddress, operand);
+}
+
 void CPU::CPU_TESTING()
 {
-	std::cout << std::hex << (int)registers.X << std::endl;
 }
