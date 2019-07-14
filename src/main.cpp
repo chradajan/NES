@@ -1,15 +1,9 @@
 #include <iostream>
 #include <fstream>
-#include "CPU.hpp"
-#include "PPU.hpp"
+#include "NES.hpp"
 
 int main()
 {
-	std::ifstream rom("DonkeyKong.txt");
-	CPU cpu(rom);
-	PPU ppu(rom);
-	//CPU cpu("test.txt");
-	//cpu.tick();
-	ppu.PPU_TESTING();
+	NES nes("DonkeyKong.txt");
 	return 0;
 }

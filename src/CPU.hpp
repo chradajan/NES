@@ -3,29 +3,18 @@
 #include <cstdint>
 #include <fstream>
 #include "Formats.hpp"
-#include "PPU.hpp"
 
 class CPU
 {	
 public:
-	CPU(std::ifstream& rom);
+	CPU(uint8_t* cpu_memory);
 	void tick();
 	~CPU();
 
 	void CPU_TESTING();
 
 private:
-
-	friend class PPU;
-
 	uint8_t cycles;
-
-	struct HeaderData
-	{
-		uint8_t PRG_ROM_SIZE;
-		uint8_t CHR_ROM_SIZE;
-		uint8_t Flags6, Flags7, Flags8, Flags9, Flags10;
-	};
 
 	struct CPU_Registers
 	{
@@ -37,16 +26,8 @@ private:
 		uint8_t SR;		//Status
 	};
 
-	HeaderData header;
 	CPU_Registers registers;
-	uint8_t memory[0x10000];
-
-	//ROM Loading
-	void loadROM(std::ifstream& rom);
-	uint8_t readByte(std::ifstream& rom);
-	uint8_t convertAscii(uint8_t c);
-	void decodeHeader(std::ifstream& rom);
-	void loadNROM(std::ifstream& rom);
+	uint8_t* memory;
 
 	//Mapper
 	uint16_t mapPC();

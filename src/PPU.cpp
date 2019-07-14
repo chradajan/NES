@@ -1,9 +1,12 @@
 #include "PPU.hpp"
 #include <iostream> //TODO: remove when done testing
 
-PPU::PPU(std::ifstream& rom)
+PPU::PPU(uint8_t* cpu_mem, uint8_t* ppu_mem) : 
+	memory(ppu_mem), PPUCTRL(cpu_mem[0x2000]), PPUMASK(cpu_mem[0x2001]), PPUSTATUS(cpu_mem[0x2002]),
+	OAMADDR(cpu_mem[0x2003]), OAMDATA(cpu_mem[0x2004]), PPUSCROLL(cpu_mem[0x2005]),
+	PPUADDR(cpu_mem[0x2006]), PPUDATA(cpu_mem[0x2007]), OAMDMA(cpu_mem[0x4014])
 {
-	loadROM(rom);
+
 }
 
 void PPU::tick()
@@ -12,16 +15,6 @@ void PPU::tick()
 }
 
 PPU::~PPU()
-{
-
-}
-
-void PPU::loadROM(std::ifstream& rom)
-{
-	loadNROM(rom);
-}
-
-void PPU::loadNROM(std::ifstream& rom)
 {
 
 }

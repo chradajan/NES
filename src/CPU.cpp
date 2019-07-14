@@ -1,15 +1,16 @@
 #include "CPU.hpp"
-#include "Exceptions.hpp"
 #include <iostream>	//TODO: remove when done testing
 #include <cassert>
 
-CPU::CPU(std::ifstream& rom)
+CPU::CPU(uint8_t* cpu_memory)
 {
 	registers.SR = 0x34;
 	registers.AC = 0;
 	registers.X = 0;
 	registers.Y = 0;
 	registers.SP = 0xFD;
+
+	memory = cpu_memory;
 	
 	memory[0x4017] = 0x00;
 	memory[0x4015] = 0x00;
@@ -17,8 +18,6 @@ CPU::CPU(std::ifstream& rom)
 	for(int i = 0x4000; i <= 0x400F; ++i)
 		memory[i] = 0x00;
 	//TODO: Set Noise Channel to 0x0000
-
-	loadROM(rom);
 
 	registers.PC = Reset_Vector();
 	cycles = 0;
@@ -35,81 +34,6 @@ void CPU::tick()
 CPU::~CPU()
 {
 
-}
-
-void CPU::loadROM(std::ifstream& rom)
-{
-	decodeHeader(rom);
-	loadNROM(rom);
-	rom.close();
-}
-
-uint8_t CPU::readByte(std::ifstream& rom)
-{
-	uint8_t temp1, temp2, value;
-	rom >> std::hex >> temp1;
-	rom >> std::hex >> temp2;
-	temp1 = convertAscii(temp1);
-	temp2 = convertAscii(temp2);
-	value = (temp1 << 4) + temp2;
-	return value;
-}
-
-uint8_t CPU::convertAscii(uint8_t c)
-{
-	if(c >= 48 && c <= 57)
-		return c - 48;
-	else if(c >= 65 && c <= 70)
-		return c - 55;
-	else if(c >= 97 && c <= 102)
-		return c - 87;
-	else
-		throw BadRom{};
-}
-
-void CPU::decodeHeader(std::ifstream& rom)
-{
-	uint8_t value;
-	uint32_t headerCheck = 0;
-
-	for(int i = 0; i < 4; ++i)
-	{
-		value = readByte(rom);
-		headerCheck = (headerCheck << 8) + value;
-	}
-
-	assert(headerCheck == 0x4E45531A);
-	header.PRG_ROM_SIZE = readByte(rom);
-	header.CHR_ROM_SIZE = readByte(rom);
-	header.Flags6 = readByte(rom);
-	header.Flags7 = readByte(rom);
-	header.Flags8 = readByte(rom);
-	header.Flags9 = readByte(rom);
-	header.Flags10 = readByte(rom);
-
-	for(int i = 0; i < 5; ++i)
-		readByte(rom);
-}
-
-void CPU::loadNROM(std::ifstream& rom)
-{
-	uint8_t data;
-	if(header.PRG_ROM_SIZE == 0x01)
-	{
-		for(uint16_t loc = 0x8000; loc <= 0xBFFF; ++loc)
-		{
-			data = readByte(rom);
-			memory[loc] = data;
-			memory[loc + 0x4000] = data;
-		}
-	}
-	else
-	{
-		for(uint16_t loc = 0x8000; loc >= 0x8000; ++loc)
-		{
-			memory[loc] = readByte(rom);
-		}
-	}
 }
 
 uint16_t CPU::mapPC()
