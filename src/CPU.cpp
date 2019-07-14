@@ -1,9 +1,9 @@
 #include "CPU.hpp"
 #include "Exceptions.hpp"
-#include <iostream>
+#include <iostream>	//TODO: remove when done testing
 #include <cassert>
 
-CPU::CPU(const char* file)
+CPU::CPU(std::ifstream& rom)
 {
 	registers.SR = 0x34;
 	registers.AC = 0;
@@ -18,7 +18,7 @@ CPU::CPU(const char* file)
 		memory[i] = 0x00;
 	//TODO: Set Noise Channel to 0x0000
 
-	loadROM(file);
+	loadROM(rom);
 
 	registers.PC = Reset_Vector();
 	cycles = 0;
@@ -34,11 +34,11 @@ void CPU::tick()
 
 CPU::~CPU()
 {
+
 }
 
-void CPU::loadROM(const char* file)
+void CPU::loadROM(std::ifstream& rom)
 {
-	std::ifstream rom(file);
 	decodeHeader(rom);
 	loadNROM(rom);
 	rom.close();

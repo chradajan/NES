@@ -3,17 +3,20 @@
 #include <cstdint>
 #include <fstream>
 #include "Formats.hpp"
+#include "PPU.hpp"
 
 class CPU
 {	
 public:
-	CPU(const char* file);
+	CPU(std::ifstream& rom);
 	void tick();
 	~CPU();
 
 	void CPU_TESTING();
 
 private:
+
+	friend class PPU;
 
 	uint8_t cycles;
 
@@ -39,7 +42,7 @@ private:
 	uint8_t memory[0x10000];
 
 	//ROM Loading
-	void loadROM(const char* file);
+	void loadROM(std::ifstream& rom);
 	uint8_t readByte(std::ifstream& rom);
 	uint8_t convertAscii(uint8_t c);
 	void decodeHeader(std::ifstream& rom);
