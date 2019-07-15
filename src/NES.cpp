@@ -10,6 +10,7 @@ NES::NES(const char* file)
 	loadROM(rom);
 	cpu = new CPU(CPU_memory);
 	ppu = new PPU(CPU_memory, PPU_memory);
+	cpu->tick();
 }
 
 NES::~NES()
@@ -45,9 +46,7 @@ uint8_t NES::convertAscii(uint8_t c)
 	else if(c >= 97 && c <= 102)
 		return c - 87;
 	else
-	{
 		throw BadRom{};
-	}
 }
 
 void NES::decodeHeader(std::ifstream& rom)
