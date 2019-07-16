@@ -1,6 +1,7 @@
-#include "NES.hpp"
-#include "Exceptions.hpp"
+#include "include/NES.hpp"
+#include "include/Exceptions.hpp"
 #include <cassert>
+#include <string>
 
 NES::NES(const char* file)
 {
@@ -17,6 +18,8 @@ NES::~NES()
 {
 	delete[] CPU_memory;
 	delete[] PPU_memory;
+	delete cpu;
+	delete ppu;
 }
 
 void NES::loadROM(std::ifstream& rom)
@@ -46,7 +49,7 @@ uint8_t NES::convertAscii(uint8_t c)
 	else if(c >= 97 && c <= 102)
 		return c - 87;
 	else
-		throw BadRom{};
+		throw BadRom((char)c);
 }
 
 void NES::decodeHeader(std::ifstream& rom)

@@ -1,7 +1,6 @@
 #include <iostream>
 #include <fstream>
-#include <QtCore>
-#include "NES.hpp"
+#include "include/NES.hpp"
 
 int main()
 {

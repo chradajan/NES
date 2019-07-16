@@ -13,6 +13,8 @@ public:
 	void PPU_TESTING();
 private:
 	uint8_t* memory;
+	uint8_t primary_oam[0x40][0x04];
+	uint8_t secondary_oam[0x20];
 	uint8_t& PPUCTRL;	//0x2000
 	uint8_t& PPUMASK;	//0x2001
 	uint8_t& PPUSTATUS;	//0x2002
@@ -23,9 +25,17 @@ private:
 	uint8_t& PPUDATA;	//0x2007
 	uint8_t& OAMDMA;	//0x4014
 
+	bool isOddScanline;
+	int scanlineY;
+	int scanlineX;
+
 	//Read/Write
 	uint8_t readMEMORY(uint16_t address);
 	void writeMEMORY(uint16_t address, uint8_t data);
+
+	//Sprite evaluation
+	void evaluateSprites();
+	viod clearSingleSecondaryOAMByte();
 };
 
 #endif

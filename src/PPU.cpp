@@ -1,4 +1,4 @@
-#include "PPU.hpp"
+#include "include/PPU.hpp"
 #include <iostream> //TODO: remove when done testing
 
 PPU::PPU(uint8_t* cpu_mem, uint8_t* ppu_mem) : 
@@ -37,6 +37,16 @@ void PPU::writeMEMORY(uint16_t address, uint8_t data)
 	memory[address] = data;
 }
 
+void PPU::evaluateSprites()
+{
+	if(scanlineX <= 64)
+		clearSingleSecondaryOAMByte();
+}
+
+void PPU::clearSingleSecondaryOAMByte()
+{
+	secondary_oam[scanlineX % 32] = 0xFF;
+}
 
 void PPU::PPU_TESTING()
 {
