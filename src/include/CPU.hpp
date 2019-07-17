@@ -29,6 +29,16 @@ private:
 	CPU_Registers registers;
 	uint8_t* memory;
 
+	bool oddCycle; //TODO: initialize this somewhere
+
+	//OAM Transfer
+	bool dmaTransfer;
+	uint dmaTransferCounter;
+	uint8_t dmaBuffer;
+	uint8_t dmaPage;
+	uint8_t dmaLowByte;
+	void executeDMATransfer();
+
 	//Mapper
 	uint16_t mapPC();
 

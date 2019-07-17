@@ -13,7 +13,7 @@ public:
 	void PPU_TESTING();
 private:
 	uint8_t* memory;
-	uint8_t primary_oam[0x40][0x04];
+	uint8_t primary_oam[0x100];
 	uint8_t secondary_oam[0x20];
 	uint8_t& PPUCTRL;	//0x2000
 	uint8_t& PPUMASK;	//0x2001
@@ -34,12 +34,13 @@ private:
 	void writeMEMORY(uint16_t address, uint8_t data);
 
 	//Registers
-	void setSpriteOverflowFlag();
+	void setSpriteOverflowFlag(bool condition);
+	bool ifSpriteOverflow();
 
 	//Sprite evaluation
-	uint N;
-	uint M;
-	uint secondary_oam_loc;
+	uint8_t N;
+	uint8_t M;
+	uint8_t secondary_oam_loc;
 	uint8_t oam_buffer;
 	bool found8Sprites;
 	void evaluateSprites();
@@ -47,6 +48,7 @@ private:
 	void spriteEvalRead();
 	void spriteEvalWrite();
 	void spriteOverflowEval();
+	void spriteFetch();
 };
 
 #endif

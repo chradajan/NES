@@ -25,7 +25,9 @@ CPU::CPU(uint8_t* cpu_memory)
 
 void CPU::tick()
 {
-	if(cycles == 0)
+	if(dmaTransfer && cycles == 0)
+		executeDMATransfer();
+	else if(cycles == 0)
 		executeInstruction();
 	else
 		--cycles;
@@ -34,6 +36,31 @@ void CPU::tick()
 CPU::~CPU()
 {
 
+}
+
+void CPU::executeDMATransfer()
+{
+	if(dmaTransferCounter > 512)
+	{
+		--dmaTransferCounter;
+		return;
+	}
+	else if(dmaTransferCounter > 1 && dmaTransferCounter % 2 == 0)
+	{
+		dmaBuffer = readMEMORY((dmaPage << 8) + dmaLowByte);
+		++dmaLowByte;
+		--dmaTransferCounter;
+	}
+	else if(dmaTransferCounter > 1 && dmaTransferCounter % 2 == 1)
+	{
+		writeMEMORY(0x2004, dmaBuffer);
+		--dmaTransferCounter;
+	}
+	else
+	{
+		writeMEMORY(0x2004, dmaBuffer);
+		dmaTransfer = false;
+	}
 }
 
 uint16_t CPU::mapPC()
@@ -80,7 +107,25 @@ uint8_t CPU::readMEMORY(uint16_t address)
 void CPU::writeMEMORY(uint16_t address, uint8_t data)
 {
 	//TODO: catch invalid writes
-	memory[address] = data;
+	if(address == 0x2004) //Write to OAMDATA
+	{
+		memory[address] = data;
+		++memory[0x2003]; //OAMADDR
+	}
+	// else if(address == 0x2006) //PPUADDR
+	// {
+
+	// }
+	else if(address == 0x4014)	//OAMDMA
+	{
+		memory[0x4014] = data;
+		dmaPage = data;
+		dmaLowByte = 0x00;
+		dmaTransfer = true;
+		dmaTransferCounter = 513 + (oddCycle ? 1 : 0);
+	}
+	else
+		memory[address] = data;
 }
 
 uint8_t CPU::readROM()
