@@ -37,15 +37,76 @@ void PPU::writeMEMORY(uint16_t address, uint8_t data)
 	memory[address] = data;
 }
 
+void PPU::setSpriteOverflowFlag(bool condition)
+{
+	if(condition)
+		PPUSTATUS |= 0x1 << 5;
+	else
+		PPUSTATUS &= ~(0x1 << 5)
+}
+
 void PPU::evaluateSprites()
 {
 	if(scanlineX <= 64)
-		clearSingleSecondaryOAMByte();
+		clearSecondaryOAMByte();
+	else if(scanlineX <= 256 && scanlineX % 2 == 1)
+		spriteEvalRead();
+	else if(scanlineX <= 256 && scanlineX % 2 == 0)
+		spriteEvalWrite();
 }
 
-void PPU::clearSingleSecondaryOAMByte()
+void PPU::clearSecondaryOAMByte()
 {
 	secondary_oam[scanlineX % 32] = 0xFF;
+}
+
+void PPU::spriteEvalRead()
+{
+	oam_buffer = primary_oam[N][M];
+}
+
+void PPU::spriteEvalWrite()
+{
+	if(N >= 64)
+		return;
+	else if(!found8Sprites && M == 0)
+	{
+		secondary_oam[secondary_oam_loc] = oam_buffer;
+		if(oam_buffer - 1 == scanlineY)
+		{
+			++secondary_oam_loc;
+			++M;
+		}
+		else
+		{
+			++N;
+		}
+	}
+	else if(!found8Sprites && M > 0)
+	{
+		secondary_oam[secondary_oam_loc++] = oam_buffer;
+		found8Sprites = (secondary_oam_loc == 32);
+		if(M == 3)
+		{
+			M = 0;
+			++N;
+		}
+		else
+		{
+			++M;
+		}
+	}
+	else if(found8Sprites)
+	{
+		spriteOverflowEval();
+	}
+
+
+}
+
+void PPU::spriteOverflowEval()
+{
+	
 }
 
 void PPU::PPU_TESTING()

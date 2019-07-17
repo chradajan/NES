@@ -33,9 +33,20 @@ private:
 	uint8_t readMEMORY(uint16_t address);
 	void writeMEMORY(uint16_t address, uint8_t data);
 
+	//Registers
+	void setSpriteOverflowFlag();
+
 	//Sprite evaluation
+	uint N;
+	uint M;
+	uint secondary_oam_loc;
+	uint8_t oam_buffer;
+	bool found8Sprites;
 	void evaluateSprites();
-	viod clearSingleSecondaryOAMByte();
+	void clearSecondaryOAMByte();
+	void spriteEvalRead();
+	void spriteEvalWrite();
+	void spriteOverflowEval();
 };
 
 #endif
