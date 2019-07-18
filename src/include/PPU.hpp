@@ -25,7 +25,6 @@ private:
 	uint8_t& PPUDATA;	//0x2007
 	uint8_t& OAMDMA;	//0x4014
 
-	bool isOddScanline;
 	int scanlineY;
 	int scanlineX;
 
