@@ -4,6 +4,6 @@
 
 int main()
 {
-	NES nes("../roms/DonkeyKong.txt");
+	//NES nes("../roms/DonkeyKong.txt");
 	return 0;
 }

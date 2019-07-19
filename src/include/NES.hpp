@@ -5,6 +5,7 @@
 #include "CPU.hpp"
 #include "APU.hpp"
 #include "PPU.hpp"
+#include "../mappers/Mapper.hpp"
 
 class NES
 {
@@ -19,8 +20,7 @@ private:
 		uint8_t Flags6, Flags7, Flags8, Flags9, Flags10;
 	};
 	HeaderData header;
-	uint8_t* CPU_memory;
-	uint8_t* PPU_memory;
+	uint8_t* PPU_Registers;
 	CPU* cpu;
 	APU* apu;
 	PPU* ppu;

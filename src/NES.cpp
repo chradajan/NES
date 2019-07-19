@@ -9,16 +9,15 @@ NES::NES(const char* file)
 	PPU_memory = new uint8_t[0x4000];
 	std::ifstream rom(file);
 	loadROM(rom);
-	cpu = new CPU(CPU_memory);
+	//cpu = new CPU(CPU_memory);
 	ppu = new PPU(CPU_memory, PPU_memory);
-	cpu->tick();
 }
 
 NES::~NES()
 {
 	delete[] CPU_memory;
 	delete[] PPU_memory;
-	delete cpu;
+	//delete cpu;
 	delete ppu;
 }
 

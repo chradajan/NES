@@ -1,21 +1,18 @@
 #ifndef CPU_H
 #define CPU_H
 #include <cstdint>
-#include <fstream>
-#include "Formats.hpp"
+#include "mappers/Mapper.hpp"
+#include "include/Types.hpp"
 
 class CPU
-{	
+{
 public:
-	CPU(uint8_t* cpu_memory);
+	CPU(Mapper& map, PPU_Registers& ppu, APU_IO_Registers& apu_io);
+	void reset();
 	void tick();
 	~CPU();
 
-	void CPU_TESTING();
-
 private:
-	uint8_t cycles;
-
 	struct CPU_Registers
 	{
 		uint8_t AC;		//Accumulator
@@ -26,30 +23,22 @@ private:
 		uint8_t SR;		//Status
 	};
 
-	CPU_Registers registers;
-	uint8_t* memory;
-
-	bool oddCycle; //TODO: initialize this somewhere
-
-	//OAM Transfer
-	bool dmaTransfer;
-	uint dmaTransferCounter;
-	uint8_t dmaBuffer;
-	uint8_t dmaPage;
-	uint8_t dmaLowByte;
-	void executeDMATransfer();
-
-	//Mapper
-	uint16_t mapPC();
+	CPU_Registers cpu_registers;
+	PPU_Registers& ppu_registers;
+	APU_IO_Registers& apu_io_registers;
+	Mapper& mapper;
+	uint8_t RAM[0x0800];
+	bool oddCycle;
 
 	//Read/Write
-	uint8_t readMEMORY(uint16_t address);
-	void writeMEMORY(uint16_t address, uint8_t data);
-	uint8_t readROM();
+	uint8_t read(uint16_t address);
+	void write(uint16_t address, uint8_t data);
 	uint8_t pop();
-	void push(uint8_t);
+	void push(uint8_t data);
+	uint8_t getByte();
+	bool DMA_Transfer;
 
-	//Used to read/set status register bits
+	//Status Register
 	bool if_carry();
 	bool if_overflow();
 	bool if_sign();
@@ -61,55 +50,6 @@ private:
 	void set_break(bool condition);
 	void set_overflow(bool condition);
 	void set_sign(uint16_t value);
-
-	//Fetch operand address
-	uint16_t fetchImmediateAddress();
-	uint16_t fetchZeroPageAddress();
-	uint16_t fetchZeroPageXAddress();
-	uint16_t fetchZeroPageYAddress();
-	uint16_t fetchAbsoluteAddress();
-	uint16_t fetchAbsoluteXAddress(bool addCycle);
-	uint16_t fetchAbsoluteYAddress(bool addCycle);
-	uint16_t fetchIndirectAddress();
-	uint16_t fetchIndirectXAddress();
-	uint16_t fetchIndirectYAddress(bool addCycle);
-
-	void executeInstruction();
-
-	//Utility
-	uint16_t relativeAddress(uint8_t offset);
-	uint16_t NMI_Vector();
-	uint16_t Reset_Vector();
-	uint16_t IRQ_BRK_Vector();
-
-	//Instructions
-	void ADC(uint8_t operand);
-	void ADC(uint16_t operandAddress);
-	void AND(uint8_t operand);
-	void AND(uint16_t operandAddress);
-	void ASL(uint8_t operand);
-	void ASL(uint16_t operandAddress);
-	void BIT(uint16_t operandAddress);
-	void BRANCH(bool condition);
-	void CMP(uint8_t operand, uint8_t regValue);
-	void CMP(uint16_t operandAddress, uint8_t regValue);
-	void DEC(uint16_t operandAddress);
-	void EOR(uint8_t operand);
-	void EOR(uint16_t operandAddress);
-	void INC(uint16_t operandAddress);
-	void LOAD(uint8_t operand, uint8_t& reg);
-	void LOAD(uint16_t operandAddress, uint8_t& reg);
-	void LSR(uint8_t operand);
-	void LSR(uint16_t operandAddress);
-	void ORA(uint8_t operand);
-	void ORA(uint16_t operandAddress);
-	void ROL(uint8_t operand);
-	void ROL(uint16_t operandAddress);
-	void ROR(uint8_t operand);
-	void ROR(uint16_t operandAddress);
-	void SBC(uint8_t operand);
-	void SBC(uint16_t operandAddress);
-	void STORE(uint16_t operandAddress, uint8_t regValue);
 };
 
 #endif
