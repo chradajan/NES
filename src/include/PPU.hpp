@@ -5,9 +5,6 @@
 #include "Types.hpp"
 #include "../mappers/Mapper.hpp"
 
-#define PPUSTATUS 0x2002
-#define OAMADDR 0x2003
-
 class PPU
 {
 public:

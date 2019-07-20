@@ -107,7 +107,7 @@ void PPU::evaluateSprites()
 		clearSecondaryOAMByte();
 	else if(scanlineX == 65)
 	{
-		N = read(OAMADDR);
+		N = read(0x2003); //OAMADDR
 		M = 0;
 		spriteEvalRead();
 	}
@@ -181,5 +181,5 @@ void PPU::spriteOverflowEval()
 
 void PPU::spriteFetch()
 {
-	write(OAMADDR, 0x00);
+	write(0x2003, 0x00); //OAMADDR
 }
