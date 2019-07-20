@@ -35,7 +35,14 @@ public:
 	{
 		return errorMessage.c_str();
 	}
-}
+};
+
+struct HeaderData
+{
+	uint8_t PRG_ROM_SIZE;
+	uint8_t CHR_ROM_SIZE;
+	uint8_t Flags6, Flags7, Flags8, Flags9, Flags10;
+};
 
 struct PPU_Registers
 {
@@ -70,6 +77,8 @@ struct PPU_Registers
 			case 0x2007:
 				return PPUDATA;
 		}
+		//This shouldn't happen
+		return 0x00;
 	}
 
 	void write(uint16_t address, uint8_t data)
@@ -185,6 +194,8 @@ struct APU_IO_Registers
 			case 0x4017:
 				return JOY2;
 		}
+		//This shouldn't happen
+		return 0x00;
 	}
 
 	void write(uint16_t address, uint8_t data)
@@ -265,6 +276,6 @@ struct APU_IO_Registers
 				break;
 		}
 	}
-}
+};
 
 #endif

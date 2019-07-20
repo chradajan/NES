@@ -1,8 +1,8 @@
 #include "NROM.hpp"
 
-NROM::NROM(uint8_t PRG_ROM_MULTIPLIER)
+NROM::NROM(HeaderData& header, std::ifstream& rom)
 {
-	if(PRG_ROM_MULTIPLIER == 1)
+	if(header.PRG_ROM_SIZE == 1)
 	{
 		PRG_Mirroring = true;
 		PRG_ROM = new uint8_t[0x4000];
@@ -13,17 +13,13 @@ NROM::NROM(uint8_t PRG_ROM_MULTIPLIER)
 		PRG_ROM = new uint8_t[0x8000];
 	}
 	CHR_ROM = new uint8_t[0x2000];
+
+	mirroringIsVertical = header.Flags6 & 0x01;
+
+	loadROM(rom);
 }
 
-void NROM::writePRG(uint16_t address, uint8_t data)
-{
-	(void)address; (void)data;
-	throw;
-	//TODO: Figure out what happens when a write happens to NROM
-	//Probably throw an exception
-}
-
-uint8_t NROM::readPRG(uint16_t address)
+uint8_t NROM::readPRG(uint16_t address) const
 {
 	if(address < 0x8000)
 		throw;
@@ -37,6 +33,22 @@ uint8_t NROM::readPRG(uint16_t address)
 	return PRG_ROM[address];
 }
 
+void NROM::writePRG(uint16_t address, uint8_t data)
+{
+	(void)address; (void)data;
+	throw;
+	//TODO: Figure out what happens when a write happens to NROM
+	//Probably throw an exception
+}
+
+uint8_t NROM::readCHR(uint16_t address) const
+{
+	if(address > 0x1FFF)
+		throw;
+		//TODO: Throw exception
+	return CHR_ROM[address];
+}
+
 void NROM::writeCHR(uint16_t address, uint8_t data)
 {
 	(void)address; (void)data;
@@ -45,16 +57,23 @@ void NROM::writeCHR(uint16_t address, uint8_t data)
 	//Probably throw an exception
 }
 
-uint8_t NROM::readCHR(uint16_t address)
+bool NROM::verticalMirroring() const
 {
-	if(address > 0x1FFF)
-		throw;
-		//TODO: Throw exception
-	return CHR_ROM[address];
+	return mirroringIsVertical;
 }
 
 NROM::~NROM()
 {
 	delete[] PRG_ROM;
 	delete[] CHR_ROM;
+}
+
+void NROM::loadROM(std::ifstream& rom)
+{
+	uint16_t max = PRG_Mirroring ? 0x4000 : 0x8000;
+	for(uint16_t address = 0x0000; address < max; ++address)
+		rom >> std::hex >> PRG_ROM[address];
+
+	for(uint16_t address = 0x0000; address < 0x2000; ++address)
+		rom >> std::hex >> CHR_ROM[address];
 }

@@ -1,7 +1,7 @@
 #include "include/CPU.hpp"
 
-CPU::CPU(Mapper& map, PPU_Registers& ppu, APU_IO_Registers& apu_io) 
-: mapper(map), ppu_registers(ppu), apu_io_registers(apu_io)
+CPU::CPU(Mapper* map, PPU_Registers& ppu_reg, APU_IO_Registers& apu_io_reg) 
+: mapper(map), ppu_registers(ppu_reg), apu_io_registers(apu_io_reg)
 {
 	cpu_registers.SR = 0x34;
 	cpu_registers.AC = 0;
@@ -22,7 +22,8 @@ void CPU::reset()
 
 void CPU::tick()
 {
-
+	oddCycle = !oddCycle;
+	dataBus = read(addressBus);
 }
 
 CPU::~CPU()
@@ -30,7 +31,7 @@ CPU::~CPU()
 
 }
 
-uint8_t CPU::read(uint16_t address)
+uint8_t CPU::read(uint16_t address) const
 {
 	if(address < 0x2000) //Internal RAM
 		return RAM[address % 0x0800];
@@ -41,7 +42,7 @@ uint8_t CPU::read(uint16_t address)
 	else if(address < 0x4020) //Disabled APU and I/O Functionality
 		throw Unsupported("CPU Test Mode Disabled");
 	else //Cartridge Space
-		return mapper.readPRG(address);
+		return mapper->readPRG(address);
 }
 
 void CPU::write(uint16_t address, uint8_t data)
@@ -56,11 +57,11 @@ void CPU::write(uint16_t address, uint8_t data)
 		apu_io_registers.write(address, data);
 	}
 	else if(address < 0x4018) //APU or I/O Registers
-		apu_io_registers.write(address);
+		apu_io_registers.write(address, data);
 	else if(address < 0x4020) //Disabled APU and I/O Functionality
 		throw Unsupported("CPU Test Mode Disabled");
 	else //Cartridge Space
-		mapper.writePRG(address);
+		mapper->writePRG(address, data);
 }
 
 uint8_t CPU::pop()
@@ -73,11 +74,6 @@ void CPU::push(uint8_t data)
 {
 	write(cpu_registers.SP, data);
 	--cpu_registers.SP;
-}
-
-uint8_t CPU::getByte()
-{
-	return read(cpu_registers.PC++);
 }
 
 bool CPU::if_carry()
@@ -135,9 +131,9 @@ void CPU::set_decimal(bool condition)
 void CPU::set_break(bool condition)
 {
 	if(condition)
-		registers.SR |= 0x1 << 4;
+		cpu_registers.SR |= 0x1 << 4;
 	else
-		registers.SR &= ~(0x1 << 4);
+		cpu_registers.SR &= ~(0x1 << 4);
 }
 
 void CPU::set_overflow(bool condition)
@@ -151,4 +147,9 @@ void CPU::set_overflow(bool condition)
 void CPU::set_sign(uint16_t value)
 {
 	cpu_registers.SR |= ((value >> 7) & 0x1) << 7;
+}
+
+void CPU::immediate()
+{
+
 }

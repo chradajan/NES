@@ -1,10 +1,7 @@
 #include "include/PPU.hpp"
-#include <iostream> //TODO: remove when done testing
 
-PPU::PPU(uint8_t* cpu_mem, uint8_t* ppu_mem) : 
-	memory(ppu_mem), PPUCTRL(cpu_mem[0x2000]), PPUMASK(cpu_mem[0x2001]), PPUSTATUS(cpu_mem[0x2002]),
-	OAMADDR(cpu_mem[0x2003]), OAMDATA(cpu_mem[0x2004]), PPUSCROLL(cpu_mem[0x2005]),
-	PPUADDR(cpu_mem[0x2006]), PPUDATA(cpu_mem[0x2007]), OAMDMA(cpu_mem[0x4014])
+PPU::PPU(Mapper* map, PPU_Registers& ppu_reg)
+: mapper(map), ppu_registers(ppu_reg)
 {
 
 }
@@ -19,35 +16,89 @@ PPU::~PPU()
 
 }
 
-uint8_t PPU::readMEMORY(uint16_t address)
+uint8_t PPU::read(uint16_t address) const
 {
-	if(address <= 0x2FFF)
-		return memory[address];
-	else if(address <= 0x3EFF)
-		return memory[address - 0x1000];
-	else if(address <= 0x3F1F)
-		return memory[address];
-	else
-		return memory[address - ((address / 0x20) * 0x20) + 0x3F00];
+	if(address < 0x2000) //Pattern Table
+		return mapper->readCHR(address);
+	else if(address < 0x3000) //Nametable
+	{
+		if(mapper->verticalMirroring())
+		{
+			address = (address - 0x2000) - (address / 0x2800 * 0x800);
+		}
+		else
+		{
+			address = (address - 0x2000) - (address / 0x2400 * 0x400) - (address / 0x2C00 * 0x400);
+		}
+		return VRAM[address];
+	}
+	else if(address < 0x3F00) //Nametable Mirroring
+	{
+		if(mapper->verticalMirroring())
+		{
+			address -= 0x1000;
+			address = (address - 0x2000) - (address / 0x2800 * 0x800);
+		}
+		else
+		{
+			address -= 0x1000;
+			address = (address - 0x2000) - (address / 0x2400 * 0x400) - (address / 0x2C00 * 0x400);
+		}
+		return VRAM[address];
+	}
+	else if(address < 0x3F20) //Palette RAM
+		return paletteRAM[address - 0x3F00];
+	else //Palette Ram Mirroring
+		return paletteRAM[address % 0x20];
 }
 
-void PPU::writeMEMORY(uint16_t address, uint8_t data)
+void PPU::write(uint16_t address, uint8_t data)
 {
-	//TODO: check for illegal writes
-	memory[address] = data;
+	if(address < 0x2000) //Pattern Table
+		mapper->writeCHR(address, data);
+	else if(address < 0x3000) //Nametable
+	{
+		if(mapper->verticalMirroring())
+		{
+			address = (address - 0x2000) - (address / 0x2800 * 0x800);
+		}
+		else
+		{
+			address = (address - 0x2000) - (address / 0x2400 * 0x400) - (address / 0x2C00 * 0x400);
+		}
+		VRAM[address] = data;
+	}
+	else if(address < 0x3F00) //Nametable Mirroring
+	{
+		if(mapper->verticalMirroring())
+		{
+			address -= 0x1000;
+			address = (address - 0x2000) - (address / 0x2800 * 0x800);
+		}
+		else
+		{
+			address -= 0x1000;
+			address = (address - 0x2000) - (address / 0x2400 * 0x400) - (address / 0x2C00 * 0x400);
+		}
+		VRAM[address] = data;
+	}
+	else if(address < 0x3F20) //Palette RAM
+		paletteRAM[address - 0x3F00] = data;
+	else //Palette Ram Mirroring
+		paletteRAM[address % 0x20] = data;
 }
 
 void PPU::setSpriteOverflowFlag(bool condition)
 {
 	if(condition)
-		PPUSTATUS |= 0x1 << 5;
+		ppu_registers.PPUSTATUS |= 0x1 << 5;
 	else
-		PPUSTATUS &= ~(0x1 << 5);
+		ppu_registers.PPUSTATUS &= ~(0x1 << 5);
 }
 
 bool PPU::ifSpriteOverflow()
 {
-	return (PPUSTATUS >> 5) & 0x1;
+	return (ppu_registers.PPUSTATUS >> 5) & 0x1;
 }
 
 void PPU::evaluateSprites()
@@ -56,7 +107,7 @@ void PPU::evaluateSprites()
 		clearSecondaryOAMByte();
 	else if(scanlineX == 65)
 	{
-		N = OAMADDR;
+		N = read(OAMADDR);
 		M = 0;
 		spriteEvalRead();
 	}
@@ -70,12 +121,12 @@ void PPU::evaluateSprites()
 
 void PPU::clearSecondaryOAMByte()
 {
-	secondary_oam[scanlineX % 32] = 0xFF;
+	secondaryOAM[scanlineX % 32] = 0xFF;
 }
 
 void PPU::spriteEvalRead()
 {
-	oam_buffer = primary_oam[N + M];
+	oam_buffer = primaryOAM[N + M];
 }
 
 void PPU::spriteEvalWrite()
@@ -84,7 +135,7 @@ void PPU::spriteEvalWrite()
 		return;
 	else if(!found8Sprites && M == 0)
 	{
-		secondary_oam[secondary_oam_loc] = oam_buffer;
+		secondaryOAM[secondary_oam_loc] = oam_buffer;
 		if(oam_buffer - 1 == scanlineY)
 		{
 			++secondary_oam_loc;
@@ -97,7 +148,7 @@ void PPU::spriteEvalWrite()
 	}
 	else if(!found8Sprites && M > 0)
 	{
-		secondary_oam[secondary_oam_loc++] = oam_buffer;
+		secondaryOAM[secondary_oam_loc++] = oam_buffer;
 		found8Sprites = (secondary_oam_loc == 32);
 		if(M == 3)
 		{
@@ -119,7 +170,7 @@ void PPU::spriteOverflowEval()
 {
 	if(ifSpriteOverflow() || N >= 64)
 		return;
-	else if(primary_oam[N + M] - 1 == scanlineY)
+	else if(primaryOAM[N + M] - 1 == scanlineY)
 		setSpriteOverflowFlag(1);
 	else
 	{
@@ -130,10 +181,5 @@ void PPU::spriteOverflowEval()
 
 void PPU::spriteFetch()
 {
-	OAMADDR = 0;
-
-}
-
-void PPU::PPU_TESTING()
-{
+	write(OAMADDR, 0x00);
 }

@@ -2,35 +2,32 @@
 #define PPU_H
 #include <cstdint>
 #include <fstream>
+#include "Types.hpp"
+#include "../mappers/Mapper.hpp"
+
+#define PPUSTATUS 0x2002
+#define OAMADDR 0x2003
 
 class PPU
 {
 public:
-	PPU(uint8_t* cpu_mem, uint8_t* ppu_mem);
+	PPU(Mapper* map, PPU_Registers& ppu_reg);
 	void tick();
 	~PPU();
-
-	void PPU_TESTING();
 private:
-	uint8_t* memory;
-	uint8_t primary_oam[0x100];
-	uint8_t secondary_oam[0x20];
-	uint8_t& PPUCTRL;	//0x2000
-	uint8_t& PPUMASK;	//0x2001
-	uint8_t& PPUSTATUS;	//0x2002
-	uint8_t& OAMADDR;	//0x2003
-	uint8_t& OAMDATA;	//0x2004
-	uint8_t& PPUSCROLL;	//0x2005
-	uint8_t& PPUADDR;	//0x2006
-	uint8_t& PPUDATA;	//0x2007
-	uint8_t& OAMDMA;	//0x4014
+	uint8_t VRAM[0x800];
+	uint8_t primaryOAM[0x100];
+	uint8_t secondaryOAM[0x20];
+	uint8_t paletteRAM[0x20];
+	Mapper* mapper;
+	PPU_Registers& ppu_registers;
 
 	int scanlineY;
 	int scanlineX;
 
 	//Read/Write
-	uint8_t readMEMORY(uint16_t address);
-	void writeMEMORY(uint16_t address, uint8_t data);
+	uint8_t read(uint16_t address) const;
+	void write(uint16_t address, uint8_t data);
 
 	//Registers
 	void setSpriteOverflowFlag(bool condition);
