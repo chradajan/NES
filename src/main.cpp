@@ -4,19 +4,11 @@
 
 int main()
 {
-	NES nes("../roms/DonkeyKong.nes");
-	nes.tick();
-	nes.tick();
-	nes.tick();
-
-	nes.tick();
-	nes.tick();
-
-	nes.tick();
-	nes.tick();
-	nes.tick();
-	nes.tick();
-	nes.tick();
+	std::fstream cpuLog("../logs/log.txt", std::ios::out);
+	NES nes("../roms/nestest.nes", cpuLog);
+	
+	for(int i = 0; i < 26554; ++i)
+		nes.tick();
 
 	return 0;
 }

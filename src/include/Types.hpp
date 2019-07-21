@@ -5,6 +5,9 @@
 #include <exception>
 #include <string>
 #include <cstdint>
+#include <iostream>
+#include <fstream>
+#include <iomanip>
 
 class Unsupported : virtual public std::exception
 {
@@ -16,6 +19,75 @@ public:
 	{
 		return errorMessage.c_str();
 	}
+};
+
+struct Instruction
+{
+	void set(uint8_t code, uint8_t ac, uint8_t x, uint8_t y, uint16_t pc, uint8_t sp, uint8_t p, int ppuC, int ppuS, int cpuC)
+	{
+		OPCode = code;
+		AC = ac;
+		X = x;
+		Y = y;
+		PC = pc - 1;
+		SP = sp;
+		P = p;
+		ppuCycle = ppuC;
+		ppuScanline = ppuS;
+		cpuCycle = cpuC;
+		firstByte = 0xFFFF;
+		secondByte = 0xFFFF;
+		writeFirstByte = true;
+	}
+
+	void add(uint8_t data)
+	{
+		if(writeFirstByte)
+		{
+			firstByte = data;
+			writeFirstByte = false;
+		}
+		else
+		{
+			secondByte = data;
+			writeFirstByte = true;
+		}
+	}
+
+	void print(std::fstream& log)
+	{
+		log << std::hex << std::setfill('0') << std::setw(4) << (uint)PC << "  ";
+
+		log << std::setw(2) << (uint)OPCode << " ";
+		if(firstByte <= 0xFF)
+		{
+			log << std::setw(2) << (uint)firstByte << " ";
+			if(secondByte <= 0xFF)
+				log << std::setw(2) << (uint)secondByte << " ";
+			else
+				log << "   ";
+		}
+		else
+		{
+			log << "      ";
+		}
+
+		log << "                                "; //Human readable instruction goes here
+		log << "A:" << std::setw(2) << (uint)AC << " ";
+		log << "X:" << std::setw(2) << (uint)X << " ";
+		log << "Y:" << std::setw(2) << (uint)Y << " ";
+		log << "P:" << std::setw(2) << (uint)P << " ";
+		log << "SP:" << std::setw(2) << (uint)SP << " ";
+		log << "PPU:" << std::setfill(' ') << std::setw(3) << std::dec << ppuCycle << ",";
+		log << ppuScanline << " ";
+		log << "CYC:" << cpuCycle << std::endl;
+	}
+
+private:
+	uint8_t OPCode, AC, X, Y, SP, P;
+	uint16_t firstByte, secondByte, PC;
+	int ppuCycle, ppuScanline, cpuCycle;
+	bool writeFirstByte;
 };
 
 struct HeaderData
@@ -35,6 +107,10 @@ struct PPU_Registers
 	uint8_t PPUSTROLL;
 	uint8_t PPUADDR;
 	uint8_t PPUDATA;
+
+	//For cpu debugging
+	int cycle;
+	int scanline;
 
 	uint8_t read(uint16_t address) const
 	{

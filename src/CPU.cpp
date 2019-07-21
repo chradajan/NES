@@ -1,9 +1,10 @@
 #include "include/CPU.hpp"
 
-CPU::CPU(Mapper* map, PPU_Registers& ppu_reg, APU_IO_Registers& apu_io_reg) 
-: mapper(map), ppu_registers(ppu_reg), apu_io_registers(apu_io_reg)
+CPU::CPU(Mapper* map, PPU_Registers& ppu_reg, APU_IO_Registers& apu_io_reg, std::fstream& cpuLog) 
+: mapper(map), ppu_registers(ppu_reg), apu_io_registers(apu_io_reg), log(cpuLog)
 {
-	cpu_registers.SR = 0x34;
+	//cpu_registers.SR = 0x34;
+	cpu_registers.SR = 0x24; //For nestest
 	cpu_registers.AC = 0;
 	cpu_registers.X = 0;
 	cpu_registers.Y = 0;
@@ -18,14 +19,15 @@ CPU::CPU(Mapper* map, PPU_Registers& ppu_reg, APU_IO_Registers& apu_io_reg)
 	dataBus = 0x00;
 	addressBus = 0x0000;
 
-	cpu_registers.PC = Reset_Vector();
-	cycleCount = -1;
+	cycleCount = 0;
+	totalCycles = 4;
 	oddCycle = true;
+	writeLog = true;
 }
 
 void CPU::reset()
 {
-
+	//TODO: add reset conditions
 }
 
 void CPU::tick()
@@ -33,21 +35,17 @@ void CPU::tick()
 	oddCycle = !oddCycle;
 
 	++cycleCount;
+	++totalCycles;
 
-	if(cycleCount == 0)
-		currentOP = readROM();
+	if(totalCycles < 8)
+		Reset_Vector();
 	else if(cycleCount == 1)
 		decodeOP();
 	else
 		addressingMode();
-
-	debug();
 }
 
-CPU::~CPU()
-{
-
-}
+CPU::~CPU() {}
 
 uint8_t CPU::read(uint16_t address) const
 {
@@ -94,9 +92,26 @@ void CPU::push(uint8_t data)
 	--cpu_registers.SP;
 }
 
+void CPU::readOPCode()
+{
+	if(writeLog)
+	{
+		debug();
+		currentOP = read(cpu_registers.PC++);
+		instruction.set(currentOP, cpu_registers.AC, cpu_registers.X, cpu_registers.Y, cpu_registers.PC, cpu_registers.SP, cpu_registers.SR, 
+						ppu_registers.cycle, ppu_registers.scanline, totalCycles);
+	}
+	else
+		currentOP = read(cpu_registers.PC++);
+	cycleCount = 0;
+}
+
 uint8_t CPU::readROM()
 {
-	return read(cpu_registers.PC++);
+	uint8_t temp = read(cpu_registers.PC++);
+	if(writeLog)
+		instruction.add(temp);
+	return temp;
 }
 
 bool CPU::if_carry()
@@ -172,28 +187,54 @@ void CPU::set_sign(uint16_t value)
 	cpu_registers.SR |= ((value >> 7) & 0x1) << 7;
 }
 
-uint16_t CPU::NMI_Vector()
+void CPU::NMI_Vector()
 {
-	uint8_t lowByte = read(0xFFFA);
-	uint8_t highByte = read(0xFFFB);
-	uint16_t vector = (highByte << 8) + lowByte;
-	return vector;
+	switch(cycleCount)
+	{
+		case 1:
+			addressBus = read(0xFFFA);
+			break;
+		case 2:
+			addressBus = (read(0xFFFB) << 8) + addressBus;
+			break;
+		case 3:
+			cpu_registers.PC = addressBus;
+			readOPCode();
+	}
 }
 
-uint16_t CPU::Reset_Vector()
+void CPU::Reset_Vector() //TODO:fix this
 {
-	uint8_t lowByte = read(0xFFFC);
-	uint8_t highByte = read(0xFFFD);
-	uint16_t vector = (highByte << 8) + lowByte;
-	return vector;
+	switch(cycleCount)
+	{
+		case 1:
+			addressBus = read(0xFFFC);
+			break;
+		case 2:
+			addressBus = (read(0xFFFD) << 8) + addressBus;
+			break;
+		case 3:
+			cpu_registers.PC = addressBus - 4;
+			ppu_registers.cycle = 0;
+			ppu_registers.scanline = 0;
+			readOPCode();
+	}
 }
 
-uint16_t CPU::IRQ_BRK_Vector()
+void CPU::IRQ_BRK_Vector()
 {
-	uint8_t lowByte = read(0xFFFE);
-	uint8_t highByte = read(0xFFFF);
-	uint16_t vector = (highByte << 8) + lowByte;
-	return vector;
+	switch(cycleCount)
+	{
+		case 1:
+			addressBus = read(0xFFFE);
+			break;
+		case 2:
+			addressBus = (read(0xFFFF) << 8) + addressBus;
+			break;
+		case 3:
+			cpu_registers.PC = addressBus;
+			readOPCode();
+	}
 }
 
 void CPU::implied(std::function<void()> executeInstruction)
@@ -205,8 +246,7 @@ void CPU::implied(std::function<void()> executeInstruction)
 			break;
 		case 2:
 			executeInstruction();
-			currentOP = readROM();
-			cycleCount = 0;
+			readOPCode();
 	}
 }
 
@@ -219,8 +259,7 @@ void CPU::immediate(std::function<void()> executeInstruction)
 			break;
 		case 2:
 			executeInstruction();
-			currentOP = readROM();
-			cycleCount = 0;
+			readOPCode();
 	}
 }
 
@@ -236,8 +275,7 @@ void CPU::zeroPage(std::function<void()> executeInstruction)
 			break;
 		case 3:
 			executeInstruction();
-			currentOP = readROM();
-			cycleCount = 0;
+			readOPCode();
 	}
 }
 
@@ -246,10 +284,10 @@ void CPU::zeroPageIndexed(std::function<void()> executeInstruction, const uint8_
 	switch(cycleCount)
 	{
 		case 1:
-			addressBus = dataBus = readROM();
+			dataBus = readROM();
 			break;
 		case 2:
-			read(addressBus); //Dummy read
+			read(dataBus); //Dummy read
 			dataBus += index;
 			addressBus = dataBus;
 			break;
@@ -258,8 +296,7 @@ void CPU::zeroPageIndexed(std::function<void()> executeInstruction, const uint8_
 			break;
 		case 4:
 			executeInstruction();
-			currentOP = readROM();
-			cycleCount = 0;
+			readOPCode();
 	}
 }
 
@@ -278,8 +315,7 @@ void CPU::absolute(std::function<void()> executeInstruction)
 			break;
 		case 4:
 			executeInstruction();
-			currentOP = readROM();
-			cycleCount = 0;
+			readOPCode();
 	}
 }
 
@@ -310,8 +346,7 @@ void CPU::absoluteIndexed(std::function<void()> executeInstruction, const uint8_
 			break;
 		case 5:
 			executeInstruction();
-			currentOP = readROM();
-			cycleCount = 0;
+			readOPCode();
 	}
 }
 
@@ -338,8 +373,7 @@ void CPU::indirectX(std::function<void()> executeInstruction)
 			break;
 		case 6:
 			executeInstruction();
-			currentOP = readROM();
-			cycleCount = 0;
+			readOPCode();
 	}
 }
 
@@ -374,8 +408,7 @@ void CPU::indirectY(std::function<void()> executeInstruction)
 			break;
 		case 6:
 			executeInstruction();
-			currentOP = readROM();
-			cycleCount = 0;
+			readOPCode();
 	}
 }
 
@@ -415,8 +448,7 @@ void CPU::relative(bool condition)
 			break;
 		case 3:
 			cpu_registers.PC = addressBus;
-			currentOP = readROM();
-			cycleCount = 0;
+			readOPCode();
 	}
 }
 
@@ -431,8 +463,7 @@ void CPU::zeroPage_Store(const uint8_t& regValue)
 			write(addressBus, regValue);
 			break;
 		case 3:
-			currentOP = readROM();
-			cycleCount = 0;
+			readOPCode();
 	}
 }
 
@@ -452,8 +483,7 @@ void CPU::zeroPageIndexed_Store(const uint8_t& regValue, const uint8_t& index)
 			write(addressBus, regValue);
 			break;
 		case 4:
-			currentOP = readROM();
-			cycleCount = 0;
+			readOPCode();
 	}
 }
 
@@ -471,8 +501,7 @@ void CPU::absolute_Store(const uint8_t& regValue)
 			write(addressBus, regValue);
 			break;
 		case 4:
-			currentOP = readROM();
-			cycleCount = 0;
+			readOPCode();
 	}
 }
 
@@ -494,8 +523,7 @@ void CPU::absoluteIndexed_Store(const uint8_t& regValue, const uint8_t& index)
 			write(addressBus, regValue);
 			break;
 		case 5:
-			currentOP = readROM();
-			cycleCount = 0;
+			readOPCode();
 	}
 }
 
@@ -521,8 +549,7 @@ void CPU::indirectX_Store(const uint8_t& regValue)
 			write(addressBus, regValue);
 			break;
 		case 6:
-			currentOP = readROM();
-			cycleCount = 0;
+			readOPCode();
 	}
 }
 
@@ -547,8 +574,7 @@ void CPU::indirectY_Store(const uint8_t& regValue)
 			write(addressBus, regValue);
 			break;
 		case 6:
-			currentOP = readROM();
-			cycleCount = 0;
+			readOPCode();
 	}
 }
 
@@ -560,10 +586,10 @@ void CPU::accumulator(std::function<void()> executeInstruction)
 			read(cpu_registers.PC); //Dummy read
 			dataBus = cpu_registers.AC;
 			break;
-		case 2:	//TODO: test timing since ac might be modified 1 cycle later than it is here
+		case 2:
 			executeInstruction();
 			cpu_registers.AC = dataBus;
-			currentOP = readROM();
+			readOPCode();
 			break;
 	}
 }
@@ -586,8 +612,7 @@ void CPU::zeroPage_RMW(std::function<void()> executeInstruction)
 			write(addressBus, dataBus);
 			break;
 		case 5:
-			currentOP = readROM();
-			cycleCount = 0;
+			readOPCode();
 	}
 }
 
@@ -614,8 +639,7 @@ void CPU::zeroPageX_RMW(std::function<void()> executeInstruction)
 			write(addressBus, dataBus);
 			break;
 		case 6:
-			currentOP = readROM();
-			cycleCount = 0;
+			readOPCode();
 	}
 }
 
@@ -641,8 +665,7 @@ void CPU::absolute_RMW(std::function<void()> executeInstruction)
 			write(addressBus, dataBus);
 			break;
 		case 6:
-			currentOP = readROM();
-			cycleCount = 0;
+			readOPCode();
 	}
 }
 
@@ -672,8 +695,7 @@ void CPU::absoluteX_RMW(std::function<void()> executeInstruction)
 			write(addressBus, dataBus);
 			break;
 		case 7:
-			currentOP = readROM();
-			cycleCount = 0;
+			readOPCode();
 	}
 }
 
@@ -734,8 +756,7 @@ void CPU::BRK()
 			break;
 		case 7:
 			cpu_registers.PC = addressBus;
-			currentOP = readROM();
-			cycleCount = 0;
+			readOPCode();
 	}
 }
 
@@ -814,8 +835,7 @@ void CPU::absoluteJMP()
 			break;
 		case 3:
 			cpu_registers.PC = addressBus;
-			currentOP = readROM();
-			cycleCount = 0;
+			readOPCode();
 	}
 }
 
@@ -837,8 +857,7 @@ void CPU::indirectJMP()
 			break;
 		case 5:
 			cpu_registers.PC = addressBus;
-			currentOP = readROM();
-			cycleCount = 0;
+			readOPCode();
 	}
 }
 
@@ -863,8 +882,7 @@ void CPU::JSR()
 			break;
 		case 6:
 			cpu_registers.PC = addressBus;
-			currentOP = readROM();
-			cycleCount = 0;
+			readOPCode();
 	}
 }
 
@@ -914,8 +932,7 @@ void CPU::PHA_PHP(const uint8_t& regValue)
 			push(regValue);
 			break;
 		case 3:
-			currentOP = readROM();
-			cycleCount = 0;
+			readOPCode();
 	}
 }
 
@@ -933,8 +950,7 @@ void CPU::PLA()
 			cpu_registers.AC = pop();
 			break;
 		case 4:
-			currentOP = readROM();
-			cycleCount = 0;
+			readOPCode();
 	}
 }
 
@@ -952,8 +968,7 @@ void CPU::PLP()
 			cpu_registers.SR = pop();
 			break;
 		case 4:
-			currentOP = readROM();
-			cycleCount = 0;
+			readOPCode();
 	}
 }
 
@@ -1002,8 +1017,7 @@ void CPU::RTI()
 			break;
 		case 6:
 			cpu_registers.PC = addressBus;
-			currentOP = readROM();
-			cycleCount = 0;
+			readOPCode();
 	}
 }
 
@@ -1028,8 +1042,7 @@ void CPU::RTS()
 			break;
 		case 6:
 			cpu_registers.PC = addressBus + 1;
-			currentOP = readROM();
-			cycleCount = 0;
+			readOPCode();
 	}
 }
 
@@ -1607,7 +1620,7 @@ void CPU::decodeOP()
 		case 0x95: //Zero Page,X STA
 			addressingMode = std::bind(&CPU::zeroPageIndexed_Store, this, cpu_registers.AC, cpu_registers.X);
 			break;
-		case 0x80: //Absolute STA
+		case 0x8D: //Absolute STA
 			addressingMode = std::bind(&CPU::absolute_Store, this, cpu_registers.AC);
 			break;
 		case 0x9D: //Absolute,X STA
@@ -1672,12 +1685,6 @@ void CPU::decodeOP()
 
 void CPU::debug()
 {
-	std::cout << "PC: $" << std::hex << std::setfill('0') << std::setw(4) << (uint)cpu_registers.PC - 1 << "   ";
-	std::cout << "OP_Code: $" << std::setw(2) << std::setfill('0') << (uint)currentOP << "   ";
-	std::cout << "Cycle: " << cycleCount << "   ";
-	std::cout << "AC: $" << std::setw(2) << std::setfill('0') << (uint)cpu_registers.AC << "   ";
-	std::cout << "X: $" << std::setw(2) << std::setfill('0') << (uint)cpu_registers.X << "   ";
-	std::cout << "Y: $" << std::setw(2) << std::setfill('0') << (uint)cpu_registers.Y << "   ";
-	std::cout << "SP: $" << std::setw(2) << std::setfill('0') << (uint)cpu_registers.SP << "   ";
-	std::cout << "SR: $" << std::setw(2) << std::setfill('0') << (uint)cpu_registers.SR << std::endl;
+	if(totalCycles > 7)
+		instruction.print(log);
 }

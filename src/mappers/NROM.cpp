@@ -72,7 +72,9 @@ void NROM::loadROM(std::ifstream& rom)
 {
 	uint16_t max = PRG_Mirroring ? 0x4000 : 0x8000;
 	for(uint16_t address = 0x0000; address < max; ++address)
+	{
 		rom >> std::noskipws >> std::hex >> PRG_ROM[address];
+	}
 
 	for(uint16_t address = 0x0000; address < 0x2000; ++address)
 		rom >> std::hex >> CHR_ROM[address];

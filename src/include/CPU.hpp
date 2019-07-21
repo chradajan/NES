@@ -3,14 +3,14 @@
 #include <cstdint>
 #include <functional>
 #include <iostream>
-#include <iomanip>
+#include <fstream>
 #include "../mappers/Mapper.hpp"
 #include "Types.hpp"
 
 class CPU
 {
 public:
-	CPU(Mapper* map, PPU_Registers& ppu_reg, APU_IO_Registers& apu_io_reg);
+	CPU(Mapper* map, PPU_Registers& ppu_reg, APU_IO_Registers& apu_io_reg, std::fstream& cpuLog);
 	void reset();
 	void tick();
 	~CPU();
@@ -29,6 +29,8 @@ private:
 		uint8_t SR;		//Status
 	};
 
+	void startup();
+
 	Mapper* mapper;
 	CPU_Registers cpu_registers;
 	PPU_Registers& ppu_registers;
@@ -42,12 +44,19 @@ private:
 	uint8_t dataBus;
 	uint16_t addressBus;
 	std::function<void()> addressingMode;
+	
+	//Debug
+	Instruction instruction;
+	bool writeLog;
+	std::fstream& log;
+	int totalCycles;
 
 	//Read/Write
 	uint8_t read(uint16_t address) const;
 	void write(uint16_t address, uint8_t data);
 	uint8_t pop();
 	void push(uint8_t data);
+	void readOPCode();
 	uint8_t readROM();
 	bool DMA_Transfer;
 
@@ -65,9 +74,9 @@ private:
 	void set_sign(uint16_t value);
 
 	//Vectors
-	uint16_t NMI_Vector();
-	uint16_t Reset_Vector();
-	uint16_t IRQ_BRK_Vector();
+	void NMI_Vector();
+	void Reset_Vector();
+	void IRQ_BRK_Vector();
 
 	//Addressing
 	void implied(std::function<void()> executeInstruction);

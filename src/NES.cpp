@@ -2,10 +2,10 @@
 #include "mappers/NROM.hpp"
 #include <cassert>
 
-NES::NES(const char* file)
+NES::NES(const char* file, std::fstream& cpuLog)
 {
 	loadROM(file);
-	cpu = new CPU(mapper, ppu_registers, apu_io_registers);
+	cpu = new CPU(mapper, ppu_registers, apu_io_registers, cpuLog);
 	ppu = new PPU(mapper, ppu_registers);
 }
 
@@ -51,7 +51,6 @@ void NES::decodeHeader(std::ifstream& rom)
 		headerCheck = (headerCheck << 8) + temp;
 	}
 
-	std::cout << std::hex << (uint)headerCheck << std::endl;
 	assert(headerCheck == 0x4E45531A);
 
 	rom >> std::hex >> header.PRG_ROM_SIZE;

@@ -8,5 +8,4 @@ main: ./src/*.cpp
 clean:
 	cd bin && rm -f main
 run:
-	g++ $(CXXFLAGS) $(SRC_DIR)/*.cpp $(MAPPER_DIR)/*.cpp -o $(OUT_DIR)/main
 	cd bin && ./main

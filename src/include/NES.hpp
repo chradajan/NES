@@ -11,7 +11,7 @@
 class NES
 {
 public:
-	NES(const char* file);
+	NES(const char* file, std::fstream& cpuLog);
 	void tick();
 	~NES();
 

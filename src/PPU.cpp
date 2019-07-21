@@ -8,7 +8,12 @@ PPU::PPU(Mapper* map, PPU_Registers& ppu_reg)
 
 void PPU::tick()
 {
-
+	++ppu_registers.cycle;
+	if(ppu_registers.cycle == 341)
+	{
+		++ppu_registers.scanline;
+		ppu_registers.cycle = 0;
+	}
 }
 
 PPU::~PPU()
