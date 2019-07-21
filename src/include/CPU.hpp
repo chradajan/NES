@@ -73,7 +73,7 @@ private:
 	void implied(std::function<void()> executeInstruction);
 	void immediate(std::function<void()> executeInstruction);
 	void zeroPage(std::function<void()> executeInstruction);
-	void zeroPageX(std::function<void()> executeInstruction);
+	void zeroPageIndexed(std::function<void()> executeInstruction, const uint8_t& index);
 	void absolute(std::function<void()> executeInstruction);
 	void absoluteIndexed(std::function<void()> executeInstruction, const uint8_t& index);
 	void indirectX(std::function<void()> executeInstruction);
@@ -106,6 +106,9 @@ private:
 	void absoluteJMP();
 	void indirectJMP();
 	void JSR();
+	void LDA();
+	void LDX();
+	void LDY();
 	
 	//Execution
 	void decodeOP();

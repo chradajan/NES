@@ -250,7 +250,7 @@ void CPU::zeroPage(std::function<void()> executeInstruction)
 	}
 }
 
-void CPU::zeroPageX(std::function<void()> executeInstruction)
+void CPU::zeroPageIndexed(std::function<void()> executeInstruction, const uint8_t& index)
 {
 	switch(cycleCount)
 	{
@@ -259,7 +259,7 @@ void CPU::zeroPageX(std::function<void()> executeInstruction)
 			break;
 		case 2:
 			read(addressBus); //Dummy read
-			dataBus += cpu_registers.X;
+			dataBus += index;
 			addressBus = dataBus;
 			break;
 		case 3:
@@ -745,6 +745,26 @@ void CPU::JSR()
 	}
 }
 
+void CPU::LDA()
+{
+	set_sign(dataBus);
+	set_zero(dataBus);
+	cpu_registers.AC = dataBus;
+}
+void CPU::LDX()
+{
+	set_sign(dataBus);
+	set_zero(dataBus);
+	cpu_registers.X = dataBus;
+}
+
+void CPU::LDY()
+{
+	set_sign(dataBus);
+	set_zero(dataBus);
+	cpu_registers.Y = dataBus;
+}
+
 void CPU::decodeOP()
 {
 	std::function<void()> executeInstruction;
@@ -760,7 +780,7 @@ void CPU::decodeOP()
 			break;
 		case 0x75: //Zero Page,X ADC
 			executeInstruction = std::bind(&CPU::ADC, this);
-			addressingMode = std::bind(&CPU::zeroPageX, this, executeInstruction);
+			addressingMode = std::bind(&CPU::zeroPageIndexed, this, executeInstruction, cpu_registers.X);
 			break;
 		case 0x6D: //Absolute ADC
 			executeInstruction = std::bind(&CPU::ADC, this);
@@ -792,7 +812,7 @@ void CPU::decodeOP()
 			break;
 		case 0x35: //Zero Page,X AND
 			executeInstruction = std::bind(&CPU::AND, this);
-			addressingMode = std::bind(&CPU::zeroPageX, this, executeInstruction);
+			addressingMode = std::bind(&CPU::zeroPageIndexed, this, executeInstruction, cpu_registers.X);
 			break;
 		case 0x2D: //Absolute AND
 			executeInstruction = std::bind(&CPU::AND, this);
@@ -896,7 +916,7 @@ void CPU::decodeOP()
 			break;
 		case 0xD5: //Zero Page,X CMP
 			executeInstruction = std::bind(&CPU::CMP, this, cpu_registers.AC);
-			addressingMode = std::bind(&CPU::zeroPageX, this, executeInstruction);
+			addressingMode = std::bind(&CPU::zeroPageIndexed, this, executeInstruction, cpu_registers.X);
 			break;
 		case 0xCD: //Absolute CMP
 			executeInstruction = std::bind(&CPU::CMP, this, cpu_registers.AC);
@@ -976,7 +996,7 @@ void CPU::decodeOP()
 			break;
 		case 0x55: //Zero Page,X EOR
 			executeInstruction = std::bind(&CPU::EOR, this);
-			addressingMode = std::bind(&CPU::zeroPageX, this, executeInstruction);
+			addressingMode = std::bind(&CPU::zeroPageIndexed, this, executeInstruction, cpu_registers.X);
 			break;
 		case 0x4D: //Absolute EOR
 			executeInstruction = std::bind(&CPU::EOR, this);
@@ -1032,23 +1052,77 @@ void CPU::decodeOP()
 			addressingMode = std::bind(&CPU::JSR, this);
 			break;
 		case 0xA9: //Immediate LDA
+			executeInstruction = std::bind(&CPU::LDA, this);
+			addressingMode = std::bind(&CPU::immediate, this, executeInstruction);
+			break;
 		case 0xA5: //Zero Page LDA
+			executeInstruction = std::bind(&CPU::LDA, this);
+			addressingMode = std::bind(&CPU::zeroPage, this, executeInstruction);
+			break;
 		case 0xB5: //Zero Page,X LDA
+			executeInstruction = std::bind(&CPU::LDA, this);
+			addressingMode = std::bind(&CPU::zeroPageIndexed, this, executeInstruction, cpu_registers.X);
+			break;
 		case 0xAD: //Absolute LDA
+			executeInstruction = std::bind(&CPU::LDA, this);
+			addressingMode = std::bind(&CPU::absolute, this, executeInstruction);
+			break;
 		case 0xBD: //Absolute,X LDA
+			executeInstruction = std::bind(&CPU::LDA, this);
+			addressingMode = std::bind(&CPU::absoluteIndexed, this, executeInstruction, cpu_registers.X);
+			break;
 		case 0xB9: //Absolute,Y LDA
+			executeInstruction = std::bind(&CPU::LDA, this);
+			addressingMode = std::bind(&CPU::absoluteIndexed, this, executeInstruction, cpu_registers.Y);
+			break;
 		case 0xA1: //Indirect,X LDA
+			executeInstruction = std::bind(&CPU::LDA, this);
+			addressingMode = std::bind(&CPU::indirectX, this, executeInstruction);
+			break;
 		case 0xB1: //Indirect,Y LDA
+			executeInstruction = std::bind(&CPU::LDA, this);
+			addressingMode = std::bind(&CPU::indirectY, this, executeInstruction);
+			break;
 		case 0xA2: //Immediate LDX
+			executeInstruction = std::bind(&CPU::LDX, this);
+			addressingMode = std::bind(&CPU::immediate, this, executeInstruction);
+			break;
 		case 0xA6: //Zero Page LDX
+			executeInstruction = std::bind(&CPU::LDX, this);
+			addressingMode = std::bind(&CPU::zeroPage, this, executeInstruction);
+			break;
 		case 0xB6: //Zero Page,Y LDX
+			executeInstruction = std::bind(&CPU::LDX, this);
+			addressingMode = std::bind(&CPU::zeroPageIndexed, this, executeInstruction, cpu_registers.Y);
+			break;
 		case 0xAE: //Absolute LDX
+			executeInstruction = std::bind(&CPU::LDX, this);
+			addressingMode = std::bind(&CPU::absolute, this, executeInstruction);
+			break;
 		case 0xBE: //Absolute,Y LDX
+			executeInstruction = std::bind(&CPU::LDX, this);
+			addressingMode = std::bind(&CPU::absoluteIndexed, this, executeInstruction, cpu_registers.Y);
+			break;
 		case 0xA0: //Immediate LDY
+			executeInstruction = std::bind(&CPU::LDY, this);
+			addressingMode = std::bind(&CPU::immediate, this, executeInstruction);
+			break;
 		case 0xA4: //Zero Page LDY
+			executeInstruction = std::bind(&CPU::LDY, this);
+			addressingMode = std::bind(&CPU::zeroPage, this, executeInstruction);
+			break;
 		case 0xB4: //Zero Page,X LDY
+			executeInstruction = std::bind(&CPU::LDY, this);
+			addressingMode = std::bind(&CPU::zeroPageIndexed, this, executeInstruction, cpu_registers.X);
+			break;
 		case 0xAC: //Absolute LDY
+			executeInstruction = std::bind(&CPU::LDY, this);
+			addressingMode = std::bind(&CPU::absolute, this, executeInstruction);
+			break;
 		case 0xBC: //Absolute,X LDY
+			executeInstruction = std::bind(&CPU::LDY, this);
+			addressingMode = std::bind(&CPU::absoluteIndexed, this, executeInstruction, cpu_registers.X);
+			break;
 		case 0x4A: //Accumulator LSR
 		case 0x46: //Zero Page LSR
 		case 0x56: //Zero Page,X LSR
