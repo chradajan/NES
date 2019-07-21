@@ -18,18 +18,9 @@ CPU::CPU(Mapper* map, PPU_Registers& ppu_reg, APU_IO_Registers& apu_io_reg)
 	dataBus = 0x00;
 	addressBus = 0x0000;
 
-	//Testing
-	cpu_registers.AC = 0x94;
-	cpu_registers.PC = 0x8000;
+	cpu_registers.PC = Reset_Vector();
 	cycleCount = -1;
 	oddCycle = true;
-	//End Testing
-
-	// cpu_registers.PC = Reset_Vector();
-	// //Probably do something else here eventually, but this works for now
-	// currentOP = readROM();
-	// cycleCount = -1;
-	// oddCycle = true;
 }
 
 void CPU::reset()
