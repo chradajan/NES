@@ -9,6 +9,14 @@ NES::NES(const char* file)
 	ppu = new PPU(mapper, ppu_registers);
 }
 
+void NES::tick()
+{
+	cpu->tick();
+	ppu->tick();
+	ppu->tick();
+	ppu->tick();
+}
+
 NES::~NES()
 {
 	delete cpu;
@@ -54,4 +62,9 @@ void NES::decodeHeader(std::ifstream& rom)
 
 	for(int i = 0; i < 5; ++i)
 		rom >> std::hex >> temp;
+}
+
+void NES::printRegisters()
+{
+	cpu->printRegisters();
 }
