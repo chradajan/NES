@@ -1151,6 +1151,9 @@ void CPU::decodeOP()
 			addressingMode = std::bind(&CPU::absoluteX_RMW, this, executeInstruction);
 			break;
 		case 0xEA: //Implied NOP
+			executeInstruction = [](){};
+			addressingMode = std::bind(&CPU::implied, this, executeInstruction);
+			break;
 		case 0x09: //Immediate ORA
 		case 0x05: //Zero Page ORA
 		case 0x15: //Zero Page,X ORA
