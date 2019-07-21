@@ -33,9 +33,9 @@ private:
 	PPU_Registers& ppu_registers;
 	APU_IO_Registers& apu_io_registers;
 	uint8_t RAM[0x0800];
-	bool oddCycle;
 
 	//State
+	bool oddCycle;
 	uint8_t currentOP;
 	int cycleCount;
 	uint8_t dataBus;
@@ -77,9 +77,17 @@ private:
 	void indirectX(std::function<void()> executeInstruction);
 	void indirectY(std::function<void()> executeInstruction);
 
+	//Read-Modify-Write Addressing
+	void accumulator(std::function<void()> executeInstruction);
+	void zeroPage_RMW(std::function<void()> executeInstruction);
+	void zeroPageX_RMW(std::function<void()> executeInstruction);
+	void absolute_RMW(std::function<void()> executeInstruction);
+	void absoluteX_RMW(std::function<void()> executeInstruction);
+
 	//Instructions
 	void ADC();
 	void AND();
+	void ASL();
 	
 	//Execution
 	void decodeOP();

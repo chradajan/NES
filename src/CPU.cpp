@@ -263,7 +263,7 @@ void CPU::absolute(std::function<void()> executeInstruction)
 	switch(cycleCount)
 	{
 		case 1:
-			addressBus = dataBus = readROM();
+			addressBus = readROM();
 			break;
 		case 2:
 			dataBus = readROM();
@@ -375,6 +375,131 @@ void CPU::indirectY(std::function<void()> executeInstruction)
 	}
 }
 
+void CPU::accumulator(std::function<void()> executeInstruction)
+{
+	switch(cycleCount)
+	{
+		case 1:
+			read(cpu_registers.PC); //Dummy read
+			dataBus = cpu_registers.AC;
+			break;
+		case 2:	//TODO: test timing since ac might be modified 1 cycle later than it is here
+			executeInstruction();
+			cpu_registers.AC = dataBus;
+			currentOP = readROM();
+			break;
+	}
+}
+
+void CPU::zeroPage_RMW(std::function<void()> executeInstruction)
+{
+	switch(cycleCount)
+	{
+		case 1:
+			addressBus = readROM();
+			break;
+		case 2:
+			dataBus = read(addressBus);
+			break;
+		case 3:
+			write(addressBus, 0x00); //Write is performed here while data is being modified
+			break;
+		case 4:
+			executeInstruction();
+			write(addressBus, dataBus);
+			break;
+		case 5:
+			currentOP = readROM();
+			cycleCount = 0;
+	}
+}
+
+void CPU::zeroPageX_RMW(std::function<void()> executeInstruction)
+{
+	switch(cycleCount)
+	{
+		case 1:
+			addressBus = dataBus = readROM();
+			break;
+		case 2:
+			read(addressBus); //Dummy read
+			dataBus += cpu_registers.X;
+			addressBus = dataBus;
+			break;
+		case 3:
+			dataBus = read(addressBus);
+			break;
+		case 4:
+			write(addressBus, 0x00); //Write is performed here while data is being modified
+			break;
+		case 5:
+			executeInstruction();
+			write(addressBus, dataBus);
+			break;
+		case 6:
+			currentOP = readROM();
+			cycleCount = 0;
+	}
+}
+
+void CPU::absolute_RMW(std::function<void()> executeInstruction)
+{
+	switch(cycleCount)
+	{
+		case 1:
+			addressBus = readROM();
+			break;
+		case 2:
+			dataBus = readROM();
+			break;
+		case 3:
+			addressBus = (addressBus << 8) + dataBus;
+			dataBus = read(addressBus);
+			break;
+		case 4:
+			write(addressBus, 0x00); //Write is performed here while data is being modified
+			break;
+		case 5:
+			executeInstruction();
+			write(addressBus, dataBus);
+			break;
+		case 6:
+			currentOP = readROM();
+			cycleCount = 0;
+	}
+}
+
+void CPU::absoluteX_RMW(std::function<void()> executeInstruction)
+{
+	switch(cycleCount)
+	{
+		case 1:
+			dataBus = readROM();
+			break;
+		case 2:
+			addressBus = readROM();
+			break;
+		case 3:
+			read((addressBus << 8) + ((dataBus + cpu_registers.X) & 0xFF)); //Dummy read
+			addressBus = (addressBus << 8) + dataBus;
+			break;
+		case 4:
+			addressBus += cpu_registers.X; 
+			dataBus = read(addressBus);
+			break;
+		case 5:
+			write(addressBus, 0x00); //Write is performed here while data is being modified
+			break;
+		case 6:
+			executeInstruction();
+			write(addressBus, dataBus);
+			break;
+		case 7:
+			currentOP = readROM();
+			cycleCount = 0;
+	}
+}
+
 void CPU::ADC()
 {
 	uint16_t temp = dataBus + cpu_registers.AC + (if_carry() ? 1 : 0);
@@ -391,6 +516,14 @@ void CPU::AND()
 	set_sign(dataBus);
 	set_zero(dataBus);
 	cpu_registers.AC = dataBus;
+}
+
+void CPU::ASL()
+{
+	set_carry(dataBus & 0x80);
+	dataBus <<= 1;
+	set_sign(dataBus);
+	set_zero(dataBus);
 }
 
 void CPU::decodeOP()
@@ -478,6 +611,33 @@ void CPU::decodeOP()
 			addressingMode = std::bind(&CPU::indirectY, this, executeInstruction);
 			addressingMode();
 			break;
+
+		case 0x0A: //Accumulator ASL
+			executeInstruction = std::bind(&CPU::ASL, this);
+			addressingMode = std::bind(&CPU::accumulator, this, executeInstruction);
+			addressingMode();
+			break;
+		case 0x06: //Zero Page ASL
+			executeInstruction = std::bind(&CPU::ASL, this);
+			addressingMode = std::bind(&CPU::zeroPage_RMW, this, executeInstruction);
+			addressingMode();
+			break;
+		case 0x16: //Zero Page,X ASL
+			executeInstruction = std::bind(&CPU::ASL, this);
+			addressingMode = std::bind(&CPU::zeroPageX_RMW, this, executeInstruction);
+			addressingMode();
+			break;
+		case 0x0E: //Absolute ASL
+			executeInstruction = std::bind(&CPU::ASL, this);
+			addressingMode = std::bind(&CPU::absolute_RMW, this, executeInstruction);
+			addressingMode();
+			break;
+		case 0x1E: //Absolute,X ASL
+			executeInstruction = std::bind(&CPU::ASL, this);
+			addressingMode = std::bind(&CPU::absoluteX_RMW, this, executeInstruction);
+			addressingMode();
+			break;
+
 
 		default:
 			break;
