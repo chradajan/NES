@@ -19,10 +19,8 @@ CPU::CPU(Mapper* map, PPU_Registers& ppu_reg, APU_IO_Registers& apu_io_reg)
 	addressBus = 0x0000;
 
 	//Testing
-	write(0x0669, 0xED);
+	cpu_registers.X = 0x00;
 	cpu_registers.PC = 0x8000;
-	cpu_registers.AC = 0x7B;
-	cpu_registers.X = 0x0F;
 	cycleCount = -1;
 	oddCycle = true;
 	//End Testing
@@ -51,6 +49,8 @@ void CPU::tick()
 		decodeOP();
 	else
 		addressingMode();
+
+	debug();
 }
 
 CPU::~CPU()
@@ -205,6 +205,20 @@ uint16_t CPU::IRQ_BRK_Vector()
 	return vector;
 }
 
+void CPU::implied(std::function<void()> executeInstruction)
+{
+	switch(cycleCount)
+	{
+		case 1:
+			read(cpu_registers.PC); //Dummy read
+			break;
+		case 2:
+			executeInstruction();
+			currentOP = readROM();
+			cycleCount = 0;
+	}
+}
+
 void CPU::immediate(std::function<void()> executeInstruction)
 {
 	switch(cycleCount)
@@ -266,10 +280,9 @@ void CPU::absolute(std::function<void()> executeInstruction)
 			addressBus = readROM();
 			break;
 		case 2:
-			dataBus = readROM();
+			addressBus = (readROM() << 8) + addressBus;
 			break;
 		case 3:
-			addressBus = (addressBus << 8) + dataBus;
 			dataBus = read(addressBus);
 			break;
 		case 4:
@@ -279,7 +292,7 @@ void CPU::absolute(std::function<void()> executeInstruction)
 	}
 }
 
-void CPU::absoluteIndexed(std::function<void()> executeInstruction, uint8_t& index)
+void CPU::absoluteIndexed(std::function<void()> executeInstruction, const uint8_t& index)
 {
 	switch(cycleCount)
 	{
@@ -370,6 +383,47 @@ void CPU::indirectY(std::function<void()> executeInstruction)
 			break;
 		case 6:
 			executeInstruction();
+			currentOP = readROM();
+			cycleCount = 0;
+	}
+}
+
+uint16_t CPU::relativeAddress(uint8_t offset)
+{
+	bool isNegative = (offset & 0x80) >> 7;
+	if(isNegative)
+	{
+		offset &= 0x7F;
+		return cpu_registers.PC - offset;
+	}
+	return cpu_registers.PC + offset;
+}
+
+void CPU::relative(bool condition)
+{
+	switch(cycleCount)
+	{
+		case 1:
+			dataBus = readROM();
+			addressBus = relativeAddress(dataBus);
+			break;
+		case 2:
+			if(!condition)
+			{
+				currentOP = readROM();
+				cycleCount = 0;
+			}
+			else if((cpu_registers.PC & 0xFF00) == (addressBus & 0xFF00)) //Same page
+			{
+				cpu_registers.PC = addressBus;
+				currentOP = readROM();
+				cycleCount = 0;
+			}
+			else
+				read((cpu_registers.PC & 0xFF00) + (addressBus & 0xFF)); //Dummy read
+			break;
+		case 3:
+			cpu_registers.PC = addressBus;
 			currentOP = readROM();
 			cycleCount = 0;
 	}
@@ -526,6 +580,171 @@ void CPU::ASL()
 	set_zero(dataBus);
 }
 
+void CPU::BIT()
+{
+	set_sign(dataBus);
+	set_overflow(0x40 & dataBus);
+	set_zero(dataBus & cpu_registers.AC);
+}
+
+void CPU::BRK()
+{
+	switch(cycleCount)
+	{
+		case 1:
+			readROM(); //Absorb padding byte after BRK
+			break;
+		case 2:
+			push(cpu_registers.PC >> 8);
+			break;
+		case 3:
+			push(cpu_registers.PC & 0xFF);
+			break;
+		case 4:
+			push(cpu_registers.SR);
+			break;
+		case 5:
+			addressBus = read(0xFFFE);
+			break;
+		case 6:
+			addressBus = (read(0xFFFF) << 8) + addressBus;
+			break;
+		case 7:
+			cpu_registers.PC = addressBus;
+			currentOP = readROM();
+			cycleCount = 0;
+	}
+}
+
+void CPU::CMP(const uint8_t& regValue)
+{
+	uint16_t temp = regValue - dataBus;
+	set_carry(temp < 0x100);
+	set_sign(temp);
+	set_zero(temp & 0xFF);
+}
+
+void CPU::DEC()
+{
+	uint16_t temp = (dataBus - 1) & 0xFF;
+	dataBus = temp;
+	set_sign(dataBus);
+	set_zero(dataBus);
+}
+
+void CPU::DEX()
+{
+	uint16_t temp = (cpu_registers.X - 1) & 0xFF;
+	set_sign(temp);
+	set_zero(temp);
+	cpu_registers.X = temp;
+}
+
+void CPU::DEY()
+{
+	uint16_t temp = (cpu_registers.Y - 1) & 0xFF;
+	set_sign(temp);
+	set_zero(temp);
+	cpu_registers.Y = temp;
+}
+
+void CPU::EOR()
+{
+	cpu_registers.AC ^= dataBus;
+	set_sign(cpu_registers.AC);
+	set_zero(cpu_registers.AC);
+}
+
+void CPU::INC()
+{
+	uint16_t temp = (dataBus + 1) & 0xFF;
+	dataBus = temp;
+	set_sign(dataBus);
+	set_zero(dataBus);
+}
+
+void CPU::INX()
+{
+	uint16_t temp = (cpu_registers.X + 1) & 0xFF;
+	set_sign(temp);
+	set_zero(temp);
+	cpu_registers.X = temp;
+}
+
+void CPU::INY()
+{
+	uint16_t temp = (cpu_registers.Y + 1) & 0xFF;
+	set_sign(temp);
+	set_zero(temp);
+	cpu_registers.Y = temp;
+}
+
+void CPU::absoluteJMP()
+{
+	switch(cycleCount)
+	{
+		case 1:
+			addressBus = readROM();
+			break;
+		case 2:
+			addressBus = (readROM() << 8) + addressBus;
+			break;
+		case 3:
+			cpu_registers.PC = addressBus;
+			currentOP = readROM();
+			cycleCount = 0;
+	}
+}
+
+void CPU::indirectJMP()
+{
+	switch(cycleCount)
+	{
+		case 1:
+			addressBus = readROM();
+			break;
+		case 2:
+			addressBus = (readROM() << 8) + addressBus;
+			break;
+		case 3:
+			dataBus = read(addressBus);
+			break;
+		case 4:
+			addressBus = read(addressBus + 1) + dataBus;
+			break;
+		case 5:
+			cpu_registers.PC = addressBus;
+			currentOP = readROM();
+			cycleCount = 0;
+	}
+}
+
+void CPU::JSR()
+{
+	switch(cycleCount)
+	{
+		case 1:
+			addressBus = readROM();
+			break;
+		case 2:
+			read(cpu_registers.SP); //Dummy read
+			break;
+		case 3:
+			push(cpu_registers.PC >> 8);
+			break;
+		case 4:
+			push(cpu_registers.PC & 0xFF);
+			break;
+		case 5:
+			addressBus = (readROM() << 8) + addressBus;
+			break;
+		case 6:
+			cpu_registers.PC = addressBus;
+			currentOP = readROM();
+			cycleCount = 0;
+	}
+}
+
 void CPU::decodeOP()
 {
 	std::function<void()> executeInstruction;
@@ -534,126 +753,375 @@ void CPU::decodeOP()
 		case 0x69:	//Immediate ADC
 			executeInstruction = std::bind(&CPU::ADC, this);
 			addressingMode = std::bind(&CPU::immediate, this, executeInstruction);
-			addressingMode();
 			break;
 		case 0x65: //Zero Page ADC
 			executeInstruction = std::bind(&CPU::ADC, this);
 			addressingMode = std::bind(&CPU::zeroPage, this, executeInstruction);
-			addressingMode();
 			break;
 		case 0x75: //Zero Page,X ADC
 			executeInstruction = std::bind(&CPU::ADC, this);
 			addressingMode = std::bind(&CPU::zeroPageX, this, executeInstruction);
-			addressingMode();
 			break;
 		case 0x6D: //Absolute ADC
 			executeInstruction = std::bind(&CPU::ADC, this);
 			addressingMode = std::bind(&CPU::absolute, this, executeInstruction);
-			addressingMode();
 			break;
 		case 0x7D: //Absolute,X ADC
 			executeInstruction = std::bind(&CPU::ADC, this);
 			addressingMode = std::bind(&CPU::absoluteIndexed, this, executeInstruction, cpu_registers.X);
-			addressingMode();
 			break;
 		case 0x79: //Absolute,Y ADC
 			executeInstruction = std::bind(&CPU::ADC, this);
 			addressingMode = std::bind(&CPU::absoluteIndexed, this, executeInstruction, cpu_registers.Y);
-			addressingMode();
 			break;
 		case 0x61: //Indirect,X ADC
 			executeInstruction = std::bind(&CPU::ADC, this);
 			addressingMode = std::bind(&CPU::indirectX, this, executeInstruction);
-			addressingMode();
 			break;
 		case 0x71: //Indirect,Y ADC
 			executeInstruction = std::bind(&CPU::ADC, this);
 			addressingMode = std::bind(&CPU::indirectY, this, executeInstruction);
-			addressingMode();
 			break;
 		case 0x29: //Immediate AND
 			executeInstruction = std::bind(&CPU::AND, this);
 			addressingMode = std::bind(&CPU::immediate, this, executeInstruction);
-			addressingMode();
 			break;
 		case 0x25: //Zero Page AND
 			executeInstruction = std::bind(&CPU::AND, this);
 			addressingMode = std::bind(&CPU::zeroPage, this, executeInstruction);
-			addressingMode();
 			break;
 		case 0x35: //Zero Page,X AND
 			executeInstruction = std::bind(&CPU::AND, this);
 			addressingMode = std::bind(&CPU::zeroPageX, this, executeInstruction);
-			addressingMode();
 			break;
 		case 0x2D: //Absolute AND
 			executeInstruction = std::bind(&CPU::AND, this);
 			addressingMode = std::bind(&CPU::absolute, this, executeInstruction);
-			addressingMode();
 			break;
 		case 0x3D: //Absolute,X AND
 			executeInstruction = std::bind(&CPU::AND, this);
 			addressingMode = std::bind(&CPU::absoluteIndexed, this, executeInstruction, cpu_registers.X);
-			addressingMode();
 			break;
 		case 0x39: //Absolute,Y AND
 			executeInstruction = std::bind(&CPU::AND, this);
 			addressingMode = std::bind(&CPU::absoluteIndexed, this, executeInstruction, cpu_registers.Y);
-			addressingMode();
 			break;
 		case 0x21: //Indirect,X AND
 			executeInstruction = std::bind(&CPU::AND, this);
 			addressingMode = std::bind(&CPU::indirectX, this, executeInstruction);
-			addressingMode();
 			break;
 		case 0x31: //Indirect,Y AND
 			executeInstruction = std::bind(&CPU::AND, this);
 			addressingMode = std::bind(&CPU::indirectY, this, executeInstruction);
-			addressingMode();
 			break;
 
 		case 0x0A: //Accumulator ASL
 			executeInstruction = std::bind(&CPU::ASL, this);
 			addressingMode = std::bind(&CPU::accumulator, this, executeInstruction);
-			addressingMode();
 			break;
 		case 0x06: //Zero Page ASL
 			executeInstruction = std::bind(&CPU::ASL, this);
 			addressingMode = std::bind(&CPU::zeroPage_RMW, this, executeInstruction);
-			addressingMode();
 			break;
 		case 0x16: //Zero Page,X ASL
 			executeInstruction = std::bind(&CPU::ASL, this);
 			addressingMode = std::bind(&CPU::zeroPageX_RMW, this, executeInstruction);
-			addressingMode();
 			break;
 		case 0x0E: //Absolute ASL
 			executeInstruction = std::bind(&CPU::ASL, this);
 			addressingMode = std::bind(&CPU::absolute_RMW, this, executeInstruction);
-			addressingMode();
 			break;
 		case 0x1E: //Absolute,X ASL
 			executeInstruction = std::bind(&CPU::ASL, this);
 			addressingMode = std::bind(&CPU::absoluteX_RMW, this, executeInstruction);
-			addressingMode();
 			break;
-
-
-		default:
+		case 0x90: //Relative BCC
+			addressingMode = std::bind(&CPU::relative, this, !if_carry());
+			break;
+		case 0xB0: //Relative BCS
+			addressingMode = std::bind(&CPU::relative, this, if_carry());
+			break;
+		case 0xF0: //Relative BEQ
+			addressingMode = std::bind(&CPU::relative, this, if_zero());
+			break;
+		case 0x24: //Zero Page BIT
+			executeInstruction = std::bind(&CPU::BIT, this);
+			addressingMode = std::bind(&CPU::zeroPage, this, executeInstruction);
+			break;
+		case 0x2C: //Absolute BIT
+			executeInstruction = std::bind(&CPU::BIT, this);
+			addressingMode = std::bind(&CPU::absolute, this, executeInstruction);
+			break;
+		case 0x30: //Relative BMI
+			addressingMode = std::bind(&CPU::relative, this, if_sign());
+			break;
+		case 0xD0: //Relative BNE
+			addressingMode = std::bind(&CPU::relative, this, !if_zero());
+			break;
+		case 0x10: //Relative BPL
+			addressingMode = std::bind(&CPU::relative, this, !if_sign());
+			break;
+		case 0x00: //Implied BRK
+			addressingMode = std::bind(&CPU::BRK, this);
+			break;
+		case 0x50: //Relative BVC
+			addressingMode = std::bind(&CPU::relative, this, !if_overflow());
+			break;
+		case 0x70: //Relative BVS
+			addressingMode = std::bind(&CPU::relative, this, if_overflow());
+			break;
+		case 0x18: //Implied CLC
+			executeInstruction = std::bind(&CPU::set_carry, this, 0);
+			addressingMode = std::bind(&CPU::implied, this, executeInstruction);
+			break;
+		case 0xD8: //Implied CLD
+			executeInstruction = std::bind(&CPU::set_decimal, this, 0);
+			addressingMode = std::bind(&CPU::implied, this, executeInstruction);
+			break;
+		case 0x58: //Implied CLI
+			executeInstruction = std::bind(&CPU::set_interrupt, this, 0);
+			addressingMode = std::bind(&CPU::implied, this, executeInstruction);
+			break;
+		case 0xB8: //Implied CLV
+			executeInstruction = std::bind(&CPU::set_overflow, this, 0);
+			addressingMode = std::bind(&CPU::implied, this, executeInstruction);
+			break;
+		case 0xC9: //Immediate CMP
+			executeInstruction = std::bind(&CPU::CMP, this, cpu_registers.AC);
+			addressingMode = std::bind(&CPU::immediate, this, executeInstruction);
+			break;
+		case 0xC5: //Zero Page CMP
+			executeInstruction = std::bind(&CPU::CMP, this, cpu_registers.AC);
+			addressingMode = std::bind(&CPU::zeroPage, this, executeInstruction);
+			break;
+		case 0xD5: //Zero Page,X CMP
+			executeInstruction = std::bind(&CPU::CMP, this, cpu_registers.AC);
+			addressingMode = std::bind(&CPU::zeroPageX, this, executeInstruction);
+			break;
+		case 0xCD: //Absolute CMP
+			executeInstruction = std::bind(&CPU::CMP, this, cpu_registers.AC);
+			addressingMode = std::bind(&CPU::absolute, this, executeInstruction);
+			break;
+		case 0xDD: //Absolute,X CMP
+			executeInstruction = std::bind(&CPU::CMP, this, cpu_registers.AC);
+			addressingMode = std::bind(&CPU::absoluteIndexed, this, executeInstruction, cpu_registers.X);
+			break;
+		case 0xD9: //Absolute,Y CMP
+			executeInstruction = std::bind(&CPU::CMP, this, cpu_registers.AC);
+			addressingMode = std::bind(&CPU::absoluteIndexed, this, executeInstruction, cpu_registers.Y);
+			break;
+		case 0xC1: //Indirect,X CMP
+			executeInstruction = std::bind(&CPU::CMP, this, cpu_registers.AC);
+			addressingMode = std::bind(&CPU::indirectX, this, executeInstruction);
+			break;
+		case 0xD1: //Indirect,Y CMP
+			executeInstruction = std::bind(&CPU::CMP, this, cpu_registers.AC);
+			addressingMode = std::bind(&CPU::indirectY, this, executeInstruction);
+			break;
+		case 0xE0: //Immediate CPX
+			executeInstruction = std::bind(&CPU::CMP, this, cpu_registers.X);
+			addressingMode = std::bind(&CPU::immediate, this, executeInstruction);
+			break;
+		case 0xE4: //Zero Page CPX
+			executeInstruction = std::bind(&CPU::CMP, this, cpu_registers.X);
+			addressingMode = std::bind(&CPU::zeroPage, this, executeInstruction);
+			break;
+		case 0xEC: //Absolute CPX
+			executeInstruction = std::bind(&CPU::CMP, this, cpu_registers.X);
+			addressingMode = std::bind(&CPU::absolute, this, executeInstruction);
+			break;
+		case 0xC0: //Immediate CPY
+			executeInstruction = std::bind(&CPU::CMP, this, cpu_registers.Y);
+			addressingMode = std::bind(&CPU::immediate, this, executeInstruction);
+			break;
+		case 0xC4: //Zero Page CPY
+			executeInstruction = std::bind(&CPU::CMP, this, cpu_registers.Y);
+			addressingMode = std::bind(&CPU::zeroPage, this, executeInstruction);
+			break;
+		case 0xCC: //Absolute CPY
+			executeInstruction = std::bind(&CPU::CMP, this, cpu_registers.Y);
+			addressingMode = std::bind(&CPU::absolute, this, executeInstruction);
+			break;
+		case 0xC6: //Zero Page DEC
+			executeInstruction = std::bind(&CPU::DEC, this);
+			addressingMode = std::bind(&CPU::zeroPage_RMW, this, executeInstruction);
+			break;
+		case 0xD6: //Zero Page, X DEC
+			executeInstruction = std::bind(&CPU::DEC, this);
+			addressingMode = std::bind(&CPU::zeroPageX_RMW, this, executeInstruction);
+			break;
+		case 0xCE: //Absolute DEC
+			executeInstruction = std::bind(&CPU::DEC, this);
+			addressingMode = std::bind(&CPU::absolute_RMW, this, executeInstruction);
+			break;
+		case 0xDE: //Absolute,X DEC
+			executeInstruction = std::bind(&CPU::DEC, this);
+			addressingMode = std::bind(&CPU::absoluteX_RMW, this, executeInstruction);
+			break;
+		case 0xCA: //Implied DEX
+			executeInstruction = std::bind(&CPU::DEX, this);
+			addressingMode = std::bind(&CPU::implied, this, executeInstruction);
+			break;
+		case 0x88: //Implied DEY
+			executeInstruction = std::bind(&CPU::DEY, this);
+			addressingMode = std::bind(&CPU::implied, this, executeInstruction);
+			break;
+		case 0x49: //Immediate EOR
+			executeInstruction = std::bind(&CPU::EOR, this);
+			addressingMode = std::bind(&CPU::immediate, this, executeInstruction);
+			break;
+		case 0x45: //Zero Page EOR
+			executeInstruction = std::bind(&CPU::EOR, this);
+			addressingMode = std::bind(&CPU::zeroPage, this, executeInstruction);
+			break;
+		case 0x55: //Zero Page,X EOR
+			executeInstruction = std::bind(&CPU::EOR, this);
+			addressingMode = std::bind(&CPU::zeroPageX, this, executeInstruction);
+			break;
+		case 0x4D: //Absolute EOR
+			executeInstruction = std::bind(&CPU::EOR, this);
+			addressingMode = std::bind(&CPU::absolute, this, executeInstruction);
+			break;
+		case 0x5D: //Absolute,X EOR
+			executeInstruction = std::bind(&CPU::EOR, this);
+			addressingMode = std::bind(&CPU::absoluteIndexed, this, executeInstruction, cpu_registers.X);
+			break;
+		case 0x59: //Absolute,Y EOR
+			executeInstruction = std::bind(&CPU::EOR, this);
+			addressingMode = std::bind(&CPU::absoluteIndexed, this, executeInstruction, cpu_registers.Y);
+			break;
+		case 0x41: //Indirect,X EOR
+			executeInstruction = std::bind(&CPU::EOR, this);
+			addressingMode = std::bind(&CPU::indirectX, this, executeInstruction);
+			break;
+		case 0x51: //Indrect,Y EOR
+			executeInstruction = std::bind(&CPU::EOR, this);
+			addressingMode = std::bind(&CPU::indirectY, this, executeInstruction);
+			break;
+		case 0xE6: //Zero Page INC
+			executeInstruction = std::bind(&CPU::INC, this);
+			addressingMode = std::bind(&CPU::zeroPage_RMW, this, executeInstruction);
+			break;
+		case 0xF6: //Zero Page, X INC
+			executeInstruction = std::bind(&CPU::INC, this);
+			addressingMode = std::bind(&CPU::zeroPageX_RMW, this, executeInstruction);
+			break;
+		case 0xEE: //Absolute INC
+			executeInstruction = std::bind(&CPU::INC, this);
+			addressingMode = std::bind(&CPU::absolute_RMW, this, executeInstruction);
+			break;
+		case 0xFE: //Absolute,X INC
+			executeInstruction = std::bind(&CPU::INC, this);
+			addressingMode = std::bind(&CPU::absoluteX_RMW, this, executeInstruction);
+			break;
+		case 0xE8: //Implied INX
+			executeInstruction = std::bind(&CPU::INX, this);
+			addressingMode = std::bind(&CPU::implied, this, executeInstruction);
+			break;
+		case 0xC8: //Implied INY
+			executeInstruction = std::bind(&CPU::INY, this);
+			addressingMode = std::bind(&CPU::implied, this, executeInstruction);
+			break;
+		case 0x4C: //Absolute JMP
+			addressingMode = std::bind(&CPU::absoluteJMP, this);
+			break;
+		case 0x6C: //Indirect JMP
+			addressingMode = std::bind(&CPU::indirectJMP, this);
+			break;
+		case 0x20: //Absolute JSR
+			addressingMode = std::bind(&CPU::JSR, this);
+			break;
+		case 0xA9: //Immediate LDA
+		case 0xA5: //Zero Page LDA
+		case 0xB5: //Zero Page,X LDA
+		case 0xAD: //Absolute LDA
+		case 0xBD: //Absolute,X LDA
+		case 0xB9: //Absolute,Y LDA
+		case 0xA1: //Indirect,X LDA
+		case 0xB1: //Indirect,Y LDA
+		case 0xA2: //Immediate LDX
+		case 0xA6: //Zero Page LDX
+		case 0xB6: //Zero Page,Y LDX
+		case 0xAE: //Absolute LDX
+		case 0xBE: //Absolute,Y LDX
+		case 0xA0: //Immediate LDY
+		case 0xA4: //Zero Page LDY
+		case 0xB4: //Zero Page,X LDY
+		case 0xAC: //Absolute LDY
+		case 0xBC: //Absolute,X LDY
+		case 0x4A: //Accumulator LSR
+		case 0x46: //Zero Page LSR
+		case 0x56: //Zero Page,X LSR
+		case 0x4E: //Absolute LSR
+		case 0x5E: //Absolute,X LSR
+		case 0xEA: //Implied NOP
+		case 0x09: //Immediate ORA
+		case 0x05: //Zero Page ORA
+		case 0x15: //Zero Page,X ORA
+		case 0x0D: //Absolute ORA
+		case 0x1D: //Absolute,X ORA
+		case 0x19: //Absolute,Y ORA
+		case 0x01: //Indirect,X ORA
+		case 0x11: //Indirect,Y ORA
+		case 0x48: //Implied PHA
+		case 0x08: //Implied PHP
+		case 0x68: //Implied PLA
+		case 0x28: //Implied PLP
+		case 0x2A: //Accumulator ROL
+		case 0x26: //Zero Page ROL
+		case 0x36: //Zero Page,X ROL
+		case 0x2E: //Absolute ROL
+		case 0x3E: //Absolute,X ROL
+		case 0x6A: //Accumulator ROR
+		case 0x66: //Zero Page ROR
+		case 0x76: //Zero Page,X ROR
+		case 0x6E: //Absolute ROR
+		case 0x7E: //Absolute,X ROR
+		case 0x40: //Implied RTI
+		case 0x60: //Implied RTS
+		case 0xE9: //Immediate SBC
+		case 0xE5: //Zero Page SBC
+		case 0xF5: //Zero Page,X SBC
+		case 0xED: //Absolute SBC
+		case 0xFD: //Absolute,X SBC
+		case 0xF9: //Absolute,Y SBC
+		case 0xE1: //Indirect,X SBC
+		case 0xF1: //Indirect,Y SBC
+		case 0x38: //Implied SEC
+		case 0xF8: //Implied SED
+		case 0x78: //Implied SEI
+		case 0x85: //Zero Page STA
+		case 0x95: //Zero Page,X STA
+		case 0x80: //Absolute STA
+		case 0x9D: //Absolute,X STA
+		case 0x99: //Absolute,Y STA
+		case 0x81: //Indirect,X STA
+		case 0x91: //Indirect,Y STA
+		case 0x86: //Zero Page STX
+		case 0x96: //Zero Page,Y STX
+		case 0x8E: //Absolute STX
+		case 0x84: //Zero Page STY
+		case 0x94: //Zero Page,Y STY
+		case 0x8C: //Absolute STY
+		case 0xAA: //Implied TAX
+		case 0xA8: //Implied TAY
+		case 0xBA: //Implied TSX
+		case 0x8A: //Implied TXA
+		case 0x9A: //Implied TXS
+		case 0x98: //Implied TYA
 			break;
 	}
+	addressingMode();
 }
 
-void CPU::printRegisters()
+void CPU::debug()
 {
-	std::cout << std::hex << "AC: " << (uint)cpu_registers.AC << std::endl;
-	std::cout << "X:  " << (uint)cpu_registers.X << std::endl;
-	std::cout << "Y:  " << (uint)cpu_registers.Y << std::endl;
-	std::cout << "PC: " << (uint)cpu_registers.PC << std::endl;
-	std::cout << "SP: " << (uint)cpu_registers.SP << std::endl;
-	std::cout << "SR: " << (uint)cpu_registers.SR << std::endl;
-	std::cout << "Address: " << (uint)addressBus << std::endl;
-	std::cout << "Data: " << (uint)dataBus << std::endl;
-	std::cout << std::dec << "Cycle Count: " << cycleCount << "\n\n" << std::endl;
-
+	std::cout << "PC: $" << std::hex << std::setfill('0') << std::setw(4) << (uint)cpu_registers.PC << "   ";
+	std::cout << "OP_Code: $" << std::setw(2) << std::setfill('0') << (uint)currentOP << "   ";
+	std::cout << "Cycle: " << cycleCount << "   ";
+	std::cout << "AC: $" << std::setw(2) << std::setfill('0') << (uint)cpu_registers.AC << "   ";
+	std::cout << "X: $" << std::setw(2) << std::setfill('0') << (uint)cpu_registers.X << "   ";
+	std::cout << "Y: $" << std::setw(2) << std::setfill('0') << (uint)cpu_registers.Y << "   ";
+	std::cout << "SP: $" << std::setw(2) << std::setfill('0') << (uint)cpu_registers.SP << "   ";
+	std::cout << "SR: $" << std::setw(2) << std::setfill('0') << (uint)cpu_registers.SR << std::endl;
 }

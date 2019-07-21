@@ -15,9 +15,6 @@ public:
 	void tick();
 	~NES();
 
-	//Debug
-	void printRegisters();
-
 private:
 	HeaderData header;
 	PPU_Registers ppu_registers;

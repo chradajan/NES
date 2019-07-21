@@ -63,8 +63,3 @@ void NES::decodeHeader(std::ifstream& rom)
 	for(int i = 0; i < 5; ++i)
 		rom >> std::hex >> temp;
 }
-
-void NES::printRegisters()
-{
-	cpu->printRegisters();
-}

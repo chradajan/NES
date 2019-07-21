@@ -3,6 +3,7 @@
 #include <cstdint>
 #include <functional>
 #include <iostream>
+#include <iomanip>
 #include "../mappers/Mapper.hpp"
 #include "Types.hpp"
 
@@ -15,7 +16,7 @@ public:
 	~CPU();
 
 	//Debug
-	void printRegisters();
+	void debug();
 
 private:
 	struct CPU_Registers
@@ -69,13 +70,16 @@ private:
 	uint16_t IRQ_BRK_Vector();
 
 	//Addressing
+	void implied(std::function<void()> executeInstruction);
 	void immediate(std::function<void()> executeInstruction);
 	void zeroPage(std::function<void()> executeInstruction);
 	void zeroPageX(std::function<void()> executeInstruction);
 	void absolute(std::function<void()> executeInstruction);
-	void absoluteIndexed(std::function<void()> executeInstruction, uint8_t& index);
+	void absoluteIndexed(std::function<void()> executeInstruction, const uint8_t& index);
 	void indirectX(std::function<void()> executeInstruction);
 	void indirectY(std::function<void()> executeInstruction);
+	uint16_t relativeAddress(uint8_t offset);
+	void relative(bool condition);
 
 	//Read-Modify-Write Addressing
 	void accumulator(std::function<void()> executeInstruction);
@@ -88,6 +92,20 @@ private:
 	void ADC();
 	void AND();
 	void ASL();
+	void BIT();
+	void BRK();
+	void CLR();
+	void CMP(const uint8_t& regValue);
+	void DEC();
+	void DEX();
+	void DEY();
+	void EOR();
+	void INC();
+	void INX();
+	void INY();
+	void absoluteJMP();
+	void indirectJMP();
+	void JSR();
 	
 	//Execution
 	void decodeOP();
