@@ -19,7 +19,6 @@ CPU::CPU(Mapper* map, PPU_Registers& ppu_reg, APU_IO_Registers& apu_io_reg)
 	addressBus = 0x0000;
 
 	//Testing
-	cpu_registers.X = 0x00;
 	cpu_registers.PC = 0x8000;
 	cycleCount = -1;
 	oddCycle = true;
