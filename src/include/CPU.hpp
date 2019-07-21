@@ -109,6 +109,7 @@ private:
 	void LDA();
 	void LDX();
 	void LDY();
+	void LSR();
 	
 	//Execution
 	void decodeOP();

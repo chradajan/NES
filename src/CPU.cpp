@@ -764,6 +764,14 @@ void CPU::LDY()
 	cpu_registers.Y = dataBus;
 }
 
+void CPU::LSR()
+{
+	set_carry(dataBus & 0x01);
+	dataBus >>= 1;
+	set_sign(dataBus);
+	set_zero(dataBus);
+}
+
 void CPU::decodeOP()
 {
 	std::function<void()> executeInstruction;
@@ -1123,10 +1131,25 @@ void CPU::decodeOP()
 			addressingMode = std::bind(&CPU::absoluteIndexed, this, executeInstruction, cpu_registers.X);
 			break;
 		case 0x4A: //Accumulator LSR
+			executeInstruction = std::bind(&CPU::LSR, this);
+			addressingMode = std::bind(&CPU::accumulator, this, executeInstruction);
+			break;
 		case 0x46: //Zero Page LSR
+			executeInstruction = std::bind(&CPU::LSR, this);
+			addressingMode = std::bind(&CPU::zeroPage_RMW, this, executeInstruction);
+			break;
 		case 0x56: //Zero Page,X LSR
+			executeInstruction = std::bind(&CPU::LSR, this);
+			addressingMode = std::bind(&CPU::zeroPageX_RMW, this, executeInstruction);
+			break;
 		case 0x4E: //Absolute LSR
+			executeInstruction = std::bind(&CPU::LSR, this);
+			addressingMode = std::bind(&CPU::absolute_RMW, this, executeInstruction);
+			break;
 		case 0x5E: //Absolute,X LSR
+			executeInstruction = std::bind(&CPU::LSR, this);
+			addressingMode = std::bind(&CPU::absoluteX_RMW, this, executeInstruction);
+			break;
 		case 0xEA: //Implied NOP
 		case 0x09: //Immediate ORA
 		case 0x05: //Zero Page ORA
