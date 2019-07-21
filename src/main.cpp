@@ -4,7 +4,16 @@
 
 int main()
 {
-	NES nes("../roms/Test.nes");
+	NES nes("../roms/DonkeyKong.nes");
+	nes.tick();
+	nes.tick();
+	nes.tick();
+
+	nes.tick();
+	nes.tick();
+
+	nes.tick();
+	nes.tick();
 	nes.tick();
 	nes.tick();
 	nes.tick();

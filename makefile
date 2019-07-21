@@ -1,4 +1,4 @@
-CXXFLAGS = -ggdb -std=c++14 -Wall -Wextra
+CXXFLAGS = -ggdb -std=c++17 -Wall -Wextra
 OUT_DIR = ./bin
 SRC_DIR = ./src
 MAPPER_DIR = ./src/mappers

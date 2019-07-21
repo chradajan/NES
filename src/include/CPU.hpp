@@ -80,6 +80,12 @@ private:
 	void indirectY(std::function<void()> executeInstruction);
 	uint16_t relativeAddress(uint8_t offset);
 	void relative(bool condition);
+	void zeroPage_Store(const uint8_t& regValue);
+	void zeroPageIndexed_Store(const uint8_t& regValue, const uint8_t& index);
+	void absolute_Store(const uint8_t& regValue);
+	void absoluteIndexed_Store(const uint8_t& regValue, const uint8_t& index);
+	void indirectX_Store(const uint8_t& regValue);
+	void indirectY_Store(const uint8_t& regValue);
 
 	//Read-Modify-Write Addressing
 	void accumulator(std::function<void()> executeInstruction);
@@ -110,6 +116,21 @@ private:
 	void LDX();
 	void LDY();
 	void LSR();
+	void ORA();
+	void PHA_PHP(const uint8_t& regValue);
+	void PLA();
+	void PLP();
+	void ROL();
+	void ROR();
+	void RTI();
+	void RTS();
+	void SBC();
+	void TAX();
+	void TAY();
+	void TSX();
+	void TXA();
+	void TXS();
+	void TYA();
 	
 	//Execution
 	void decodeOP();

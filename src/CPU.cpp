@@ -19,6 +19,7 @@ CPU::CPU(Mapper* map, PPU_Registers& ppu_reg, APU_IO_Registers& apu_io_reg)
 	addressBus = 0x0000;
 
 	//Testing
+	cpu_registers.AC = 0x94;
 	cpu_registers.PC = 0x8000;
 	cycleCount = -1;
 	oddCycle = true;
@@ -333,9 +334,9 @@ void CPU::indirectX(std::function<void()> executeInstruction)
 		case 2:
 			read(addressBus); //Dummy read
 			dataBus += cpu_registers.X;
-			addressBus = dataBus;
 			break;
 		case 3:
+			addressBus = dataBus;
 			dataBus = read(addressBus);
 			break;
 		case 4:
@@ -423,6 +424,138 @@ void CPU::relative(bool condition)
 			break;
 		case 3:
 			cpu_registers.PC = addressBus;
+			currentOP = readROM();
+			cycleCount = 0;
+	}
+}
+
+void CPU::zeroPage_Store(const uint8_t& regValue)
+{
+	switch(cycleCount)
+	{
+		case 1:
+			addressBus = readROM();
+			break;
+		case 2:
+			write(addressBus, regValue);
+			break;
+		case 3:
+			currentOP = readROM();
+			cycleCount = 0;
+	}
+}
+
+void CPU::zeroPageIndexed_Store(const uint8_t& regValue, const uint8_t& index)
+{
+	switch(cycleCount)
+	{
+		case 1:
+			addressBus = dataBus = readROM();
+			break;
+		case 2:
+			read(addressBus); //Dummy read
+			dataBus += index;
+			addressBus = dataBus;
+			break;
+		case 3:
+			write(addressBus, regValue);
+			break;
+		case 4:
+			currentOP = readROM();
+			cycleCount = 0;
+	}
+}
+
+void CPU::absolute_Store(const uint8_t& regValue)
+{
+	switch(cycleCount)
+	{
+		case 1:
+			addressBus = readROM();
+			break;
+		case 2:
+			addressBus = (readROM() << 8) + addressBus;
+			break;
+		case 3:
+			write(addressBus, regValue);
+			break;
+		case 4:
+			currentOP = readROM();
+			cycleCount = 0;
+	}
+}
+
+void CPU::absoluteIndexed_Store(const uint8_t& regValue, const uint8_t& index)
+{
+	switch(cycleCount)
+	{
+		case 1:
+			addressBus = readROM();
+			break;
+		case 2:
+			addressBus = (readROM() << 8) + addressBus;
+			break;
+		case 3:
+			read((addressBus & 0xFF00) + ((addressBus + index) & 0xFF)); //Dummy read
+			addressBus += index;
+			break;
+		case 4:
+			write(addressBus, regValue);
+			break;
+		case 5:
+			currentOP = readROM();
+			cycleCount = 0;
+	}
+}
+
+void CPU::indirectX_Store(const uint8_t& regValue)
+{
+	switch(cycleCount)
+	{
+		case 1:
+			addressBus = dataBus = readROM();
+			break;
+		case 2:
+			read(addressBus); //Dummy read
+			dataBus += cpu_registers.X;
+			break;
+		case 3:
+			addressBus = dataBus;
+			dataBus = read(addressBus);
+			break;
+		case 4:
+			addressBus = (read(addressBus + 1) << 8) + dataBus;
+			break;
+		case 5:
+			write(addressBus, regValue);
+			break;
+		case 6:
+			currentOP = readROM();
+			cycleCount = 0;
+	}
+}
+
+void CPU::indirectY_Store(const uint8_t& regValue)
+{
+	switch(cycleCount)
+	{
+		case 1:
+			addressBus = readROM();
+			break;
+		case 2:
+			dataBus = read(addressBus);
+			break;
+		case 3:
+			addressBus = (read(addressBus + 1) << 8) + dataBus;
+			break;
+		case 4:
+			read((addressBus & 0xFF00) + ((addressBus + cpu_registers.Y) & 0xFF)); //Dummy read
+			addressBus += cpu_registers.Y;
+			break;
+		case 5:
+			write(addressBus, regValue);
+			break;
+		case 6:
 			currentOP = readROM();
 			cycleCount = 0;
 	}
@@ -770,6 +903,195 @@ void CPU::LSR()
 	dataBus >>= 1;
 	set_sign(dataBus);
 	set_zero(dataBus);
+}
+
+void CPU::ORA()
+{
+	cpu_registers.AC |= dataBus;
+	set_sign(cpu_registers.AC);
+	set_zero(cpu_registers.AC);
+}
+
+void CPU::PHA_PHP(const uint8_t& regValue)
+{
+	switch(cycleCount)
+	{
+		case 1:
+			read(cpu_registers.PC); //Dummy read
+			break;
+		case 2: 
+			push(regValue);
+			break;
+		case 3:
+			currentOP = readROM();
+			cycleCount = 0;
+	}
+}
+
+void CPU::PLA()
+{
+	switch(cycleCount)
+	{
+		case 1:
+			read(cpu_registers.PC); //Dummy read
+			break;
+		case 2:
+			read(cpu_registers.SP); //Dummy read
+			break;
+		case 3:
+			cpu_registers.AC = pop();
+			break;
+		case 4:
+			currentOP = readROM();
+			cycleCount = 0;
+	}
+}
+
+void CPU::PLP()
+{
+	switch(cycleCount)
+	{
+		case 1:
+			read(cpu_registers.PC); //Dummy read
+			break;
+		case 2:
+			read(cpu_registers.SP); //Dummy read
+			break;
+		case 3:
+			cpu_registers.SR = pop();
+			break;
+		case 4:
+			currentOP = readROM();
+			cycleCount = 0;
+	}
+}
+
+void CPU::ROL()
+{
+	uint16_t temp = dataBus;
+	temp <<= 1;
+	if(if_carry())
+		temp |= 0x01;
+	set_carry(temp > 0xFF);
+	cpu_registers.AC = temp & 0xFF;
+	set_sign(cpu_registers.AC);
+	set_zero(cpu_registers.AC);
+}
+
+void CPU::ROR()
+{
+	uint16_t temp = dataBus;
+	if(if_carry())
+		temp |= 0x100;
+	set_carry(temp & 0x01);
+	temp >>= 1;
+	cpu_registers.AC = temp & 0xFF;
+	set_sign(cpu_registers.AC);
+	set_zero(cpu_registers.AC);
+}
+
+void CPU::RTI()
+{
+	switch(cycleCount)
+	{
+		case 1:
+			read(cpu_registers.PC); //Dummy read
+			break;
+		case 2:
+			read(cpu_registers.SP); //Dummy read
+			break;
+		case 3:
+			cpu_registers.SR = pop();
+			break;
+		case 4:
+			addressBus = pop();
+			break;
+		case 5:
+			addressBus = (pop() << 8) + addressBus;
+			break;
+		case 6:
+			cpu_registers.PC = addressBus;
+			currentOP = readROM();
+			cycleCount = 0;
+	}
+}
+
+void CPU::RTS()
+{
+	switch(cycleCount)
+	{
+		case 1:
+			read(cpu_registers.PC); //Dummy read
+			break;
+		case 2:
+			read(cpu_registers.SP); //Dummy read
+			break;
+		case 3:
+			addressBus = pop();
+			break;
+		case 4:
+			addressBus = (pop() << 8) + addressBus;
+			break;
+		case 5:
+			read(addressBus); //Dummy read
+			break;
+		case 6:
+			cpu_registers.PC = addressBus + 1;
+			currentOP = readROM();
+			cycleCount = 0;
+	}
+}
+
+void CPU::SBC()
+{
+	uint16_t temp = cpu_registers.AC - dataBus - (if_carry() ? 0 : 1);
+	set_sign(temp);
+	set_zero(temp & 0xFF);
+	set_overflow(((cpu_registers.AC ^ temp) & 0x80) && ((cpu_registers.AC ^ dataBus) & 0x80));
+	set_carry(temp < 0x100);
+	cpu_registers.AC = (temp & 0xFF);
+}
+
+void CPU::TAX()
+{
+	cpu_registers.X = cpu_registers.AC;
+	set_sign(cpu_registers.X);
+	set_zero(cpu_registers.X);
+}
+
+void CPU::TAY()
+{
+	cpu_registers.Y = cpu_registers.AC;
+	set_sign(cpu_registers.Y);
+	set_zero(cpu_registers.Y);
+}
+
+void CPU::TSX()
+{
+	cpu_registers.X = cpu_registers.SP;
+	set_sign(cpu_registers.X);
+	set_zero(cpu_registers.X);
+}
+
+void CPU::TXA()
+{
+	cpu_registers.AC = cpu_registers.X;
+	set_sign(cpu_registers.AC);
+	set_zero(cpu_registers.AC);
+}
+
+void CPU::TXS()
+{
+	cpu_registers.SP = cpu_registers.X;
+	set_sign(cpu_registers.SP);
+	set_zero(cpu_registers.SP);
+}
+
+void CPU::TYA()
+{
+	cpu_registers.AC = cpu_registers.Y;
+	set_sign(cpu_registers.AC);
+	set_zero(cpu_registers.AC);
 }
 
 void CPU::decodeOP()
@@ -1155,67 +1477,211 @@ void CPU::decodeOP()
 			addressingMode = std::bind(&CPU::implied, this, executeInstruction);
 			break;
 		case 0x09: //Immediate ORA
-		case 0x05: //Zero Page ORA
-		case 0x15: //Zero Page,X ORA
-		case 0x0D: //Absolute ORA
-		case 0x1D: //Absolute,X ORA
-		case 0x19: //Absolute,Y ORA
-		case 0x01: //Indirect,X ORA
-		case 0x11: //Indirect,Y ORA
-		case 0x48: //Implied PHA
-		case 0x08: //Implied PHP
-		case 0x68: //Implied PLA
-		case 0x28: //Implied PLP
-		case 0x2A: //Accumulator ROL
-		case 0x26: //Zero Page ROL
-		case 0x36: //Zero Page,X ROL
-		case 0x2E: //Absolute ROL
-		case 0x3E: //Absolute,X ROL
-		case 0x6A: //Accumulator ROR
-		case 0x66: //Zero Page ROR
-		case 0x76: //Zero Page,X ROR
-		case 0x6E: //Absolute ROR
-		case 0x7E: //Absolute,X ROR
-		case 0x40: //Implied RTI
-		case 0x60: //Implied RTS
-		case 0xE9: //Immediate SBC
-		case 0xE5: //Zero Page SBC
-		case 0xF5: //Zero Page,X SBC
-		case 0xED: //Absolute SBC
-		case 0xFD: //Absolute,X SBC
-		case 0xF9: //Absolute,Y SBC
-		case 0xE1: //Indirect,X SBC
-		case 0xF1: //Indirect,Y SBC
-		case 0x38: //Implied SEC
-		case 0xF8: //Implied SED
-		case 0x78: //Implied SEI
-		case 0x85: //Zero Page STA
-		case 0x95: //Zero Page,X STA
-		case 0x80: //Absolute STA
-		case 0x9D: //Absolute,X STA
-		case 0x99: //Absolute,Y STA
-		case 0x81: //Indirect,X STA
-		case 0x91: //Indirect,Y STA
-		case 0x86: //Zero Page STX
-		case 0x96: //Zero Page,Y STX
-		case 0x8E: //Absolute STX
-		case 0x84: //Zero Page STY
-		case 0x94: //Zero Page,Y STY
-		case 0x8C: //Absolute STY
-		case 0xAA: //Implied TAX
-		case 0xA8: //Implied TAY
-		case 0xBA: //Implied TSX
-		case 0x8A: //Implied TXA
-		case 0x9A: //Implied TXS
-		case 0x98: //Implied TYA
+			executeInstruction = std::bind(&CPU::ORA, this);
+			addressingMode = std::bind(&CPU::immediate, this, executeInstruction);
 			break;
+		case 0x05: //Zero Page ORA
+			executeInstruction = std::bind(&CPU::ORA, this);
+			addressingMode = std::bind(&CPU::zeroPage, this, executeInstruction);
+			break;
+		case 0x15: //Zero Page,X ORA
+			executeInstruction = std::bind(&CPU::ORA, this);
+			addressingMode = std::bind(&CPU::zeroPageIndexed, this, executeInstruction, cpu_registers.X);
+			break;
+		case 0x0D: //Absolute ORA
+			executeInstruction = std::bind(&CPU::ORA, this);
+			addressingMode = std::bind(&CPU::absolute, this, executeInstruction);
+			break;
+		case 0x1D: //Absolute,X ORA
+			executeInstruction = std::bind(&CPU::ORA, this);
+			addressingMode = std::bind(&CPU::absoluteIndexed, this, executeInstruction, cpu_registers.X);
+			break;
+		case 0x19: //Absolute,Y ORA
+			executeInstruction = std::bind(&CPU::ORA, this);
+			addressingMode = std::bind(&CPU::absoluteIndexed, this, executeInstruction, cpu_registers.Y);
+			break;
+		case 0x01: //Indirect,X ORA
+			executeInstruction = std::bind(&CPU::ORA, this);
+			addressingMode = std::bind(&CPU::indirectX, this, executeInstruction);
+			break;
+		case 0x11: //Indirect,Y ORA
+			executeInstruction = std::bind(&CPU::ORA, this);
+			addressingMode = std::bind(&CPU::indirectY, this, executeInstruction);
+			break;
+		case 0x48: //Implied PHA
+			addressingMode = std::bind(&CPU::PHA_PHP, this, cpu_registers.AC);
+			break;
+		case 0x08: //Implied PHP
+			addressingMode = std::bind(&CPU::PHA_PHP, this, cpu_registers.SR);
+			break;
+		case 0x68: //Implied PLA
+			addressingMode = std::bind(&CPU::PLA, this);
+			break;
+		case 0x28: //Implied PLP
+			addressingMode = std::bind(&CPU::PLP, this);
+			break;
+		case 0x2A: //Accumulator ROL
+			executeInstruction = std::bind(&CPU::ROL, this);
+			addressingMode = std::bind(&CPU::accumulator, this, executeInstruction);
+			break;
+		case 0x26: //Zero Page ROL
+			executeInstruction = std::bind(&CPU::ROL, this);
+			addressingMode = std::bind(&CPU::zeroPage_RMW, this, executeInstruction);
+			break;
+		case 0x36: //Zero Page,X ROL
+			executeInstruction = std::bind(&CPU::ROL, this);
+			addressingMode = std::bind(&CPU::zeroPageX_RMW, this, executeInstruction);
+			break;
+		case 0x2E: //Absolute ROL
+			executeInstruction = std::bind(&CPU::ROL, this);
+			addressingMode = std::bind(&CPU::absolute_RMW, this, executeInstruction);
+			break;
+		case 0x3E: //Absolute,X ROL
+			executeInstruction = std::bind(&CPU::ROL, this);
+			addressingMode = std::bind(&CPU::absoluteX_RMW, this, executeInstruction);
+			break;
+		case 0x6A: //Accumulator ROR
+			executeInstruction = std::bind(&CPU::ROR, this);
+			addressingMode = std::bind(&CPU::accumulator, this, executeInstruction);
+			break;
+		case 0x66: //Zero Page ROR
+			executeInstruction = std::bind(&CPU::ROR, this);
+			addressingMode = std::bind(&CPU::zeroPage_RMW, this, executeInstruction);
+			break;
+		case 0x76: //Zero Page,X ROR
+			executeInstruction = std::bind(&CPU::ROR, this);
+			addressingMode = std::bind(&CPU::zeroPageX_RMW, this, executeInstruction);
+			break;
+		case 0x6E: //Absolute ROR
+			executeInstruction = std::bind(&CPU::ROR, this);
+			addressingMode = std::bind(&CPU::absolute_RMW, this, executeInstruction);
+			break;
+		case 0x7E: //Absolute,X ROR
+			executeInstruction = std::bind(&CPU::ROR, this);
+			addressingMode = std::bind(&CPU::absoluteX_RMW, this, executeInstruction);
+			break;
+		case 0x40: //Implied RTI
+			addressingMode = std::bind(&CPU::RTI, this);
+			break;
+		case 0x60: //Implied RTS
+			addressingMode = std::bind(&CPU::RTS, this);
+			break;
+		case 0xE9: //Immediate SBC
+			executeInstruction = std::bind(&CPU::SBC, this);
+			addressingMode = std::bind(&CPU::immediate, this, executeInstruction);
+			break;
+		case 0xE5: //Zero Page SBC
+			executeInstruction = std::bind(&CPU::SBC, this);
+			addressingMode = std::bind(&CPU::zeroPage, this, executeInstruction);
+			break;
+		case 0xF5: //Zero Page,X SBC
+			executeInstruction = std::bind(&CPU::SBC, this);
+			addressingMode = std::bind(&CPU::zeroPageIndexed, this, executeInstruction, cpu_registers.X);
+			break;
+		case 0xED: //Absolute SBC
+			executeInstruction = std::bind(&CPU::SBC, this);
+			addressingMode = std::bind(&CPU::absolute, this, executeInstruction);
+			break;
+		case 0xFD: //Absolute,X SBC
+			executeInstruction = std::bind(&CPU::SBC, this);
+			addressingMode = std::bind(&CPU::absoluteIndexed, this, executeInstruction, cpu_registers.X);
+			break;
+		case 0xF9: //Absolute,Y SBC
+			executeInstruction = std::bind(&CPU::SBC, this);
+			addressingMode = std::bind(&CPU::absoluteIndexed, this, executeInstruction, cpu_registers.Y);
+			break;
+		case 0xE1: //Indirect,X SBC
+			executeInstruction = std::bind(&CPU::SBC, this);
+			addressingMode = std::bind(&CPU::indirectX, this, executeInstruction);
+			break;
+		case 0xF1: //Indirect,Y SBC
+			executeInstruction = std::bind(&CPU::SBC, this);
+			addressingMode = std::bind(&CPU::indirectY, this, executeInstruction);
+			break;
+		case 0x38: //Implied SEC
+			executeInstruction = std::bind(&CPU::set_carry, this, 1);
+			addressingMode = std::bind(&CPU::implied, this, executeInstruction);
+			break;
+		case 0xF8: //Implied SED
+			executeInstruction = std::bind(&CPU::set_decimal, this, 1);
+			addressingMode = std::bind(&CPU::implied, this, executeInstruction);
+			break;
+		case 0x78: //Implied SEI
+			executeInstruction = std::bind(&CPU::set_interrupt, this, 1);
+			addressingMode = std::bind(&CPU::implied, this, executeInstruction);
+			break;
+		case 0x85: //Zero Page STA
+			addressingMode = std::bind(&CPU::zeroPage_Store, this, cpu_registers.AC);
+			break;
+		case 0x95: //Zero Page,X STA
+			addressingMode = std::bind(&CPU::zeroPageIndexed_Store, this, cpu_registers.AC, cpu_registers.X);
+			break;
+		case 0x80: //Absolute STA
+			addressingMode = std::bind(&CPU::absolute_Store, this, cpu_registers.AC);
+			break;
+		case 0x9D: //Absolute,X STA
+			addressingMode = std::bind(&CPU::absoluteIndexed_Store, this, cpu_registers.AC, cpu_registers.X);
+			break;
+		case 0x99: //Absolute,Y STA
+			addressingMode = std::bind(&CPU::absoluteIndexed_Store, this, cpu_registers.AC, cpu_registers.Y);
+			break;
+		case 0x81: //Indirect,X STA
+			addressingMode = std::bind(&CPU::indirectX_Store, this, cpu_registers.AC);
+			break;
+		case 0x91: //Indirect,Y STA
+			addressingMode = std::bind(&CPU::indirectY_Store, this, cpu_registers.AC);
+			break;
+		case 0x86: //Zero Page STX
+			addressingMode = std::bind(&CPU::zeroPage_Store, this, cpu_registers.X);
+			break;
+		case 0x96: //Zero Page,Y STX
+			addressingMode = std::bind(&CPU::zeroPageIndexed_Store, this, cpu_registers.X, cpu_registers.Y);
+			break;
+		case 0x8E: //Absolute STX
+			addressingMode = std::bind(&CPU::absolute_Store, this, cpu_registers.X);
+			break;
+		case 0x84: //Zero Page STY
+			addressingMode = std::bind(&CPU::zeroPage_Store, this, cpu_registers.Y);
+			break;
+		case 0x94: //Zero Page,X STY
+			addressingMode = std::bind(&CPU::zeroPageIndexed_Store, this, cpu_registers.Y, cpu_registers.X);
+			break;
+		case 0x8C: //Absolute STY
+			addressingMode = std::bind(&CPU::absolute_Store, this, cpu_registers.Y);
+			break;
+		case 0xAA: //Implied TAX
+			executeInstruction = std::bind(&CPU::TAX, this);
+			addressingMode = std::bind(&CPU::implied, this, executeInstruction);
+			break;
+		case 0xA8: //Implied TAY
+			executeInstruction = std::bind(&CPU::TAY, this);
+			addressingMode = std::bind(&CPU::implied, this, executeInstruction);
+			break;
+		case 0xBA: //Implied TSX
+			executeInstruction = std::bind(&CPU::TSX, this);
+			addressingMode = std::bind(&CPU::implied, this, executeInstruction);
+			break;
+		case 0x8A: //Implied TXA
+			executeInstruction = std::bind(&CPU::TXA, this);
+			addressingMode = std::bind(&CPU::implied, this, executeInstruction);
+			break;
+		case 0x9A: //Implied TXS
+			executeInstruction = std::bind(&CPU::TXS, this);
+			addressingMode = std::bind(&CPU::implied, this, executeInstruction);
+			break;
+		case 0x98: //Implied TYA
+			executeInstruction = std::bind(&CPU::TYA, this);
+			addressingMode = std::bind(&CPU::implied, this, executeInstruction);
+			break;
+		default:
+			throw Unsupported("Bad OPCode");
 	}
 	addressingMode();
 }
 
 void CPU::debug()
 {
-	std::cout << "PC: $" << std::hex << std::setfill('0') << std::setw(4) << (uint)cpu_registers.PC << "   ";
+	std::cout << "PC: $" << std::hex << std::setfill('0') << std::setw(4) << (uint)cpu_registers.PC - 1 << "   ";
 	std::cout << "OP_Code: $" << std::setw(2) << std::setfill('0') << (uint)currentOP << "   ";
 	std::cout << "Cycle: " << cycleCount << "   ";
 	std::cout << "AC: $" << std::setw(2) << std::setfill('0') << (uint)cpu_registers.AC << "   ";
