@@ -4,6 +4,7 @@
 #include <iostream>
 #include <exception>
 #include <string>
+#include <sstream>
 #include <cstdint>
 #include <iostream>
 #include <fstream>
@@ -21,24 +22,35 @@ public:
 	}
 };
 
-struct Instruction
+enum AddressingMode
 {
-	void set(uint8_t code, uint8_t ac, uint8_t x, uint8_t y, uint16_t pc, uint8_t sp, uint8_t p, int ppuC, int ppuS, int cpuC)
-	{
-		OPCode = code;
-		AC = ac;
-		X = x;
-		Y = y;
-		PC = pc - 1;
-		SP = sp;
-		P = p;
-		ppuCycle = ppuC;
-		ppuScanline = ppuS;
-		cpuCycle = cpuC;
-		firstByte = 0xFFFF;
-		secondByte = 0xFFFF;
-		writeFirstByte = true;
-	}
+	ACCUMULATOR, //
+	IMMEDIATE, //
+	IMPLIED, //
+	ABSOLUTE, //
+	ABSOLUTEINDEXED, //
+	ZEROPAGEINDEXED,
+	ZEROPAGE,
+	INDIRECT,
+	PREINDEXEDINDIRECT,
+	POSTINDEXEDINDIRECT,
+	RELATIVE,
+	ZEROPAGESTORE,
+	ZEROPAGEINDEXEDSTORE,
+	ABSOLUTESTORE,
+	ABSOLUTEINDEXEDSTORE,
+	PREINDEXEDINDIRECTSTORE,
+	POSTINDEXEDINDIRECTSTORE
+};
+
+struct DebugInfo
+{
+	std::string OPCode;
+	AddressingMode mode;
+	uint8_t OPCodeHex, AC, X, Y, SP, P, memoryValue;
+	uint16_t PC, address, firstByte, secondByte;
+	int ppuCycle, ppuScanline, cpuCycle;
+	std::string indexString;
 
 	void add(uint8_t data)
 	{
@@ -53,26 +65,25 @@ struct Instruction
 			writeFirstByte = true;
 		}
 	}
-
 	void print(std::fstream& log)
 	{
-		log << std::hex << std::setfill('0') << std::setw(4) << (uint)PC << "  ";
+		log << std::hex << std::uppercase << std::setfill('0') << std::setw(4) << (uint)PC << "  ";
+		log << std::setw(2) << (uint)OPCodeHex << " ";
 
-		log << std::setw(2) << (uint)OPCode << " ";
 		if(firstByte <= 0xFF)
 		{
 			log << std::setw(2) << (uint)firstByte << " ";
 			if(secondByte <= 0xFF)
-				log << std::setw(2) << (uint)secondByte << " ";
+				log << std::setw(2) << (uint)secondByte << "  ";
 			else
-				log << "   ";
+				log << "    ";
 		}
 		else
 		{
-			log << "      ";
+			log << "       ";
 		}
 
-		log << "                                "; //Human readable instruction goes here
+		log << readableInstruction();
 		log << "A:" << std::setw(2) << (uint)AC << " ";
 		log << "X:" << std::setw(2) << (uint)X << " ";
 		log << "Y:" << std::setw(2) << (uint)Y << " ";
@@ -82,12 +93,91 @@ struct Instruction
 		log << ppuScanline << " ";
 		log << "CYC:" << cpuCycle << std::endl;
 	}
-
 private:
-	uint8_t OPCode, AC, X, Y, SP, P;
-	uint16_t firstByte, secondByte, PC;
-	int ppuCycle, ppuScanline, cpuCycle;
-	bool writeFirstByte;
+	bool writeFirstByte = true;
+	std::string readableInstruction()
+	{
+		std::stringstream ss;
+		ss << OPCode << std::hex << std::uppercase << std::setfill('0');
+		// switch(mode)
+		// {
+
+		// }
+
+		for(int i = 0; i < 32 - (int)ss.str().length(); ++i)
+			ss << " ";
+
+		return ss.str();
+	}
+};
+
+
+struct Instruction
+{
+	// std::string humanInstruction(std::string humanReadableOPCode, AddressingMode mode, uint16_t debugAddress, uint8_t debugMemoryValue)
+	// {
+	// 	std::stringstream ss;
+	// 	ss << humanReadableOPCode << std::hex << std::uppercase << std::setfill('0');
+
+	// 	switch(mode)
+	// 	{
+	// 		case ACCUMULATOR:
+	// 			ss << " A";
+	// 			break;
+	// 		case IMMEDIATE:
+	// 			ss << " #$" << std::setfill('0') << std::setw(2) << (uint)firstByte;
+	// 			break;
+	// 		case IMPLIED:
+	// 			break;
+	// 		case ABSOLUTE:
+	// 		case ABSOLUTEINDEXED:
+	// 			ss << " $" << std::setw(2) << (uint)secondByte << std::setw(2) << (uint)firstByte;
+	// 			break;
+	// 		case INDIRECT:
+	// 			ss << " ($" << std::setw(2) << (uint)secondByte << std::setw(2) << (uint)firstByte;
+	// 			ss << ")" << " = " << std::setw(4) << (uint)debugAddress;
+	// 			break;
+	// 		case PREINDEXEDINDIRECT:
+				
+	// 			break;
+	// 		case POSTINDEXEDINDIRECTSTORE:
+	// 			break;
+	// 		case RELATIVE:
+	// 			ss << " $" << std::setw(4) << (uint)debugAddress;
+	// 			break;
+	// 		case ZEROPAGE:
+	// 		case ZEROPAGEINDEXED:
+	// 			ss << " $" << std::setw(2) << (uint)firstByte;
+	// 			break;
+
+	// 		case ZEROPAGESTORE:
+	// 		case ZEROPAGEINDEXEDSTORE:
+	// 			ss << " $" << std::setw(2) << (uint)firstByte << " = " << std::setw(2) << (uint)debugMemoryValue;
+	// 			break;
+	// 		case ABSOLUTESTORE:
+	// 		case ABSOLUTEINDEXEDSTORE:
+	// 			ss << " $" << std::setw(2) << (uint)secondByte << std::setw(2) << (uint)firstByte;
+	// 			ss << " = " << std::setw(2) << (uint)debugMemoryValue;
+	// 			break;
+	// 		case PREINDEXEDINDIRECTSTORE:
+	// 			ss << " ($" << std::setw(2) << (uint)firstByte << ",X) @ " << std::setw(2) << (uint)((X + firstByte) & 0xFF);
+	// 			ss << " = " << std::setw(4) << (uint)debugAddress << " = " << std::setw(2) << (uint)debugMemoryValue;
+	// 			break;
+	// 		case POSTINDEXEDINDIRECTSTORE:
+	// 			ss << " ($" << std::setw(2) << (uint)firstByte << "),Y = " << std::setw(4) << (uint)debugAddress;
+	// 			ss << " @ " << std::setw(4) << (uint)((debugAddress + Y) & 0xFFFF) << " = " << std::setw(2) << (uint)debugMemoryValue;
+	// 			break;
+	// 		default:
+	// 			ss << " TODO";
+	// 	}
+
+	// 	humanReadableOPCode = ss.str();
+
+	// 	for(int i = 0; i < 32 - (int)humanReadableOPCode.length(); ++i)
+	// 		ss << " ";
+
+	// 	return ss.str();
+	// }
 };
 
 struct HeaderData

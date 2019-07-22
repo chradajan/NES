@@ -4,6 +4,7 @@
 #include <functional>
 #include <iostream>
 #include <fstream>
+#include <string>
 #include "../mappers/Mapper.hpp"
 #include "Types.hpp"
 
@@ -46,8 +47,9 @@ private:
 	std::function<void()> addressingMode;
 	
 	//Debug
-	Instruction instruction;
-	bool writeLog;
+	DebugInfo debugInfo;
+
+	bool debugEnabled;
 	std::fstream& log;
 	int totalCycles;
 
@@ -66,12 +68,12 @@ private:
 	bool if_sign();
 	bool if_zero();
 	void set_carry(bool condition);
-	void set_zero(uint16_t value);
+	void set_zero(uint8_t value);
 	void set_interrupt(bool condition);
 	void set_decimal(bool condition);
 	void set_break(bool condition);
 	void set_overflow(bool condition);
-	void set_sign(uint16_t value);
+	void set_sign(uint8_t value);
 
 	//Vectors
 	void NMI_Vector();
