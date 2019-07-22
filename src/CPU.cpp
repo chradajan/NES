@@ -1,5 +1,7 @@
 #include "include/CPU.hpp"
 
+//TODO: Implement IRQ and NMI interrupts. Implement OMA transfer
+
 CPU::CPU(Mapper* map, PPU_Registers& ppu_reg, APU_IO_Registers& apu_io_reg, std::fstream& cpuLog) 
 : mapper(map), ppu_registers(ppu_reg), apu_io_registers(apu_io_reg), log(cpuLog)
 {
@@ -108,8 +110,7 @@ void CPU::readOPCode()
 		debugInfo.ppuCycle = ppu_registers.cycle;
 		debugInfo.ppuScanline = ppu_registers.scanline;
 		debugInfo.cpuCycle = totalCycles;
-		debugInfo.firstByte = 0xFFFF;
-		debugInfo.secondByte = 0xFFFF;
+		debugInfo.resetBytes();
 	}
 	else
 		currentOP = read(cpu_registers.PC++);
@@ -120,7 +121,9 @@ uint8_t CPU::readROM()
 {
 	uint8_t temp = read(cpu_registers.PC++);
 	if(debugEnabled)
+	{
 		debugInfo.add(temp);
+	}
 	return temp;
 }
 
@@ -194,7 +197,10 @@ void CPU::set_overflow(bool condition)
 
 void CPU::set_sign(uint8_t value)
 {
-	cpu_registers.SR |= ((value >> 7) & 0x1) << 7;
+	if(value >= 0x80)
+		cpu_registers.SR |= 0x1 << 7;
+	else
+		cpu_registers.SR &= ~(0x1 << 7);
 }
 
 void CPU::NMI_Vector()
@@ -440,23 +446,24 @@ void CPU::relative(bool condition)
 		case 1:
 			dataBus = readROM();
 			addressBus = relativeAddress(dataBus);
+			if(debugEnabled) debugInfo.address = addressBus;
 			break;
 		case 2:
 			if(!condition)
-			{
-				currentOP = readROM();
-				cycleCount = 0;
-			}
-			else if((cpu_registers.PC & 0xFF00) == (addressBus & 0xFF00)) //Same page
-			{
-				cpu_registers.PC = addressBus;
-				currentOP = readROM();
-				cycleCount = 0;
-			}
+				readOPCode();
 			else
 				read((cpu_registers.PC & 0xFF00) + (addressBus & 0xFF)); //Dummy read
 			break;
 		case 3:
+			if((cpu_registers.PC & 0xFF00) != (addressBus & 0xFF00))
+				read(addressBus); //Dummy read
+			else
+			{
+				cpu_registers.PC = addressBus;
+				readOPCode();
+			}
+			break;
+		case 4:
 			cpu_registers.PC = addressBus;
 			readOPCode();
 	}
@@ -470,6 +477,7 @@ void CPU::zeroPage_Store(const uint8_t& regValue)
 			addressBus = readROM();
 			break;
 		case 2:
+			if(debugEnabled) debugInfo.memoryValue = read(addressBus);
 			write(addressBus, regValue);
 			break;
 		case 3:
@@ -490,6 +498,7 @@ void CPU::zeroPageIndexed_Store(const uint8_t& regValue, const uint8_t& index)
 			addressBus = dataBus;
 			break;
 		case 3:
+			if(debugEnabled) debugInfo.memoryValue = read(addressBus);
 			write(addressBus, regValue);
 			break;
 		case 4:
@@ -508,6 +517,7 @@ void CPU::absolute_Store(const uint8_t& regValue)
 			addressBus = (readROM() << 8) + addressBus;
 			break;
 		case 3:
+			if(debugEnabled) debugInfo.memoryValue = read(addressBus);
 			write(addressBus, regValue);
 			break;
 		case 4:
@@ -530,6 +540,7 @@ void CPU::absoluteIndexed_Store(const uint8_t& regValue, const uint8_t& index)
 			addressBus += index;
 			break;
 		case 4:
+			if(debugEnabled) debugInfo.memoryValue = read(addressBus);
 			write(addressBus, regValue);
 			break;
 		case 5:
@@ -556,6 +567,7 @@ void CPU::indirectX_Store(const uint8_t& regValue)
 			addressBus = (read(addressBus + 1) << 8) + dataBus;
 			break;
 		case 5:
+			if(debugEnabled) debugInfo.memoryValue = read(addressBus);
 			write(addressBus, regValue);
 			break;
 		case 6:
@@ -581,6 +593,7 @@ void CPU::indirectY_Store(const uint8_t& regValue)
 			addressBus += cpu_registers.Y;
 			break;
 		case 5:
+			if(debugEnabled) debugInfo.memoryValue = read(addressBus);
 			write(addressBus, regValue);
 			break;
 		case 6:
@@ -760,8 +773,13 @@ void CPU::BRK()
 			push(cpu_registers.PC & 0xFF);
 			break;
 		case 4:
-			push(cpu_registers.SR);
+		{
+			uint8_t temp = cpu_registers.SR; //Set bits 5 and 4 to distinguish how value was pushed
+			temp |= 0x1 << 5;
+			temp |= 0x1 << 4;
+			push(temp);
 			break;
+		}
 		case 5:
 			addressBus = read(0xFFFE);
 			break;
@@ -945,7 +963,7 @@ void CPU::ORA()
 	set_zero(cpu_registers.AC);
 }
 
-void CPU::PHA_PHP(const uint8_t& regValue)
+void CPU::PHA()
 {
 	switch(cycleCount)
 	{
@@ -953,8 +971,28 @@ void CPU::PHA_PHP(const uint8_t& regValue)
 			read(cpu_registers.PC); //Dummy read
 			break;
 		case 2: 
-			push(regValue);
+			push(cpu_registers.AC);
 			break;
+		case 3:
+			readOPCode();
+	}
+}
+
+void CPU::PHP()
+{
+	switch(cycleCount)
+	{
+		case 1:
+			read(cpu_registers.PC); //Dummy read
+			break;
+		case 2:
+		{
+			uint8_t temp = cpu_registers.SR; //Set bits 5 and 4 to distinguish how value was pushed
+			temp |= 0x1 << 5;
+			temp |= 0x1 << 4;
+			push(temp);
+			break;
+		}
 		case 3:
 			readOPCode();
 	}
@@ -972,6 +1010,8 @@ void CPU::PLA()
 			break;
 		case 3:
 			cpu_registers.AC = pop();
+			set_sign(cpu_registers.AC);
+			set_zero(cpu_registers.AC);
 			break;
 		case 4:
 			readOPCode();
@@ -1131,7 +1171,7 @@ void CPU::decodeOP()
 	switch(currentOP)
 	{
 		case 0x69:	//Immediate ADC
-			if(debugEnabled) { debugInfo.OPCode = "ADC"; debugInfo.mode = IMMEDIATE;}
+			if(debugEnabled) { debugInfo.OPCode = "ADC"; debugInfo.mode = IMMEDIATE; }
 			executeInstruction = std::bind(&CPU::ADC, this);
 			addressingMode = std::bind(&CPU::immediate, this, executeInstruction);
 			break;
@@ -1473,7 +1513,7 @@ void CPU::decodeOP()
 			addressingMode = std::bind(&CPU::implied, this, executeInstruction);
 			break;
 		case 0x4C: //Absolute JMP
-			if(debugEnabled) { debugInfo.OPCode = "JMP"; debugInfo.mode = ABSOLUTE; }
+			if(debugEnabled) { debugInfo.OPCode = "JMP"; debugInfo.mode = ABSOLUTEJMP; }
 			addressingMode = std::bind(&CPU::absoluteJMP, this);
 			break;
 		case 0x6C: //Indirect JMP
@@ -1481,7 +1521,7 @@ void CPU::decodeOP()
 			addressingMode = std::bind(&CPU::indirectJMP, this);
 			break;
 		case 0x20: //Absolute JSR
-			if(debugEnabled) { debugInfo.OPCode = "JSR"; debugInfo.mode = ABSOLUTE; }
+			if(debugEnabled) { debugInfo.OPCode = "JSR"; debugInfo.mode = ABSOLUTEJMP; }
 			addressingMode = std::bind(&CPU::JSR, this);
 			break;
 		case 0xA9: //Immediate LDA
@@ -1646,14 +1686,14 @@ void CPU::decodeOP()
 			break;
 		case 0x48: //Implied PHA
 			if(debugEnabled) { debugInfo.OPCode = "PHA"; debugInfo.mode = IMPLIED; }
-			addressingMode = std::bind(&CPU::PHA_PHP, this, cpu_registers.AC);
+			addressingMode = std::bind(&CPU::PHA, this);
 			break;
 		case 0x08: //Implied PHP
 			if(debugEnabled) { debugInfo.OPCode = "PHP"; debugInfo.mode = IMPLIED; }
-			addressingMode = std::bind(&CPU::PHA_PHP, this, cpu_registers.SR);
+			addressingMode = std::bind(&CPU::PHP, this);
 			break;
 		case 0x68: //Implied PLA
-			if(debugEnabled) { debugInfo.OPCode = "PAL"; debugInfo.mode = IMPLIED; }
+			if(debugEnabled) { debugInfo.OPCode = "PLA"; debugInfo.mode = IMPLIED; }
 			addressingMode = std::bind(&CPU::PLA, this);
 			break;
 		case 0x28: //Implied PLP

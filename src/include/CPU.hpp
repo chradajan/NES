@@ -128,7 +128,8 @@ private:
 	void LDY();
 	void LSR();
 	void ORA();
-	void PHA_PHP(const uint8_t& regValue);
+	void PHA();
+	void PHP();
 	void PLA();
 	void PLP();
 	void ROL();

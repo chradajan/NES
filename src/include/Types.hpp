@@ -24,13 +24,13 @@ public:
 
 enum AddressingMode
 {
-	ACCUMULATOR, //
-	IMMEDIATE, //
-	IMPLIED, //
-	ABSOLUTE, //
-	ABSOLUTEINDEXED, //
-	ZEROPAGEINDEXED,
+	ACCUMULATOR,
+	IMMEDIATE,
+	IMPLIED,
+	ABSOLUTE,
 	ZEROPAGE,
+	ABSOLUTEINDEXED,
+	ZEROPAGEINDEXED,
 	INDIRECT,
 	PREINDEXEDINDIRECT,
 	POSTINDEXEDINDIRECT,
@@ -40,7 +40,8 @@ enum AddressingMode
 	ABSOLUTESTORE,
 	ABSOLUTEINDEXEDSTORE,
 	PREINDEXEDINDIRECTSTORE,
-	POSTINDEXEDINDIRECTSTORE
+	POSTINDEXEDINDIRECTSTORE,
+	ABSOLUTEJMP
 };
 
 struct DebugInfo
@@ -65,6 +66,12 @@ struct DebugInfo
 			writeFirstByte = true;
 		}
 	}
+	void resetBytes()
+	{
+		writeFirstByte = true;
+		firstByte = 0xFFFF;
+		secondByte = 0xFFFF;
+	}
 	void print(std::fstream& log)
 	{
 		log << std::hex << std::uppercase << std::setfill('0') << std::setw(4) << (uint)PC << "  ";
@@ -72,7 +79,7 @@ struct DebugInfo
 
 		if(firstByte <= 0xFF)
 		{
-			log << std::setw(2) << (uint)firstByte << " ";
+			log << std::setw(2) << (uint)(firstByte & 0xFF) << " ";
 			if(secondByte <= 0xFF)
 				log << std::setw(2) << (uint)secondByte << "  ";
 			else
@@ -90,7 +97,7 @@ struct DebugInfo
 		log << "P:" << std::setw(2) << (uint)P << " ";
 		log << "SP:" << std::setw(2) << (uint)SP << " ";
 		log << "PPU:" << std::setfill(' ') << std::setw(3) << std::dec << ppuCycle << ",";
-		log << ppuScanline << " ";
+		log << std::setw(3) << ppuScanline << " ";
 		log << "CYC:" << cpuCycle << std::endl;
 	}
 private:
@@ -99,12 +106,43 @@ private:
 	{
 		std::stringstream ss;
 		ss << OPCode << std::hex << std::uppercase << std::setfill('0');
-		// switch(mode)
-		// {
+		switch(mode)
+		{
+			case ACCUMULATOR:
+				ss << " A";
+				break;
+			case IMMEDIATE:
+				ss << " #$" << std::setw(2) << (uint)firstByte;
+				break;
+			case IMPLIED:
+				break;
+			case ABSOLUTE:
+				ss << " $" << std::setw(4) << (uint)address << " = " << std::setw(2) << (uint)memoryValue;
+				break;
+			case ZEROPAGE:
+				ss << " $" << std::setw(2) << (uint)firstByte << " = " << std::setw(2) << (uint)memoryValue;
+				break;
+			case ZEROPAGEINDEXED:
+			case ABSOLUTEINDEXED:
+				ss << " $" << std::setw(2) << (uint)secondByte << std::setw(2) << (uint)firstByte << "," << indexString << " @ ";
+				ss << (uint)(address) << " = " << std::setw(2) << (uint)memoryValue;
+				break;
+			case ABSOLUTEJMP:
+				ss << " $" << std::setw(2) << (uint)secondByte << std::setw(2) << (uint)firstByte;
+				break;
+			case PREINDEXEDINDIRECT:
+			case POSTINDEXEDINDIRECT:
+				break;
+			case RELATIVE:
+				ss << " $" << std::setw(4) << (uint)address;
+				break;
+			default:
+				break;
+		}
 
-		// }
+		int remainingSpaces = ss.str().length();
 
-		for(int i = 0; i < 32 - (int)ss.str().length(); ++i)
+		for(int i = 0; i < 32 - remainingSpaces; ++i)
 			ss << " ";
 
 		return ss.str();
