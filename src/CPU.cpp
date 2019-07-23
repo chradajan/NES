@@ -20,9 +20,6 @@ CPU::CPU(Mapper* map, PPU_Registers& ppu_reg, APU_IO_Registers& apu_io_reg, std:
 		write(i, 0x00);
 	//TODO: set noise channel
 
-	dataBus = 0x00;
-	addressBus = 0x0000;
-
 	cycleCount = 0;
 	totalCycles = 4;
 	oddCycle = true;
@@ -41,7 +38,9 @@ void CPU::tick()
 	++cycleCount;
 	++totalCycles;
 
-	if(totalCycles < 8)
+	if(dmaTransfer)
+		executeDMATransfer();
+	else if(totalCycles < 8)
 		Reset_Vector();
 	else if(cycleCount == 1)
 		decodeOP();
@@ -50,6 +49,24 @@ void CPU::tick()
 }
 
 CPU::~CPU() {}
+
+void executeDMATransfer()
+{
+	if(dmaTransferCycle == 514)
+		read(cpu_registers.PC); //Dummy read
+	else if(oddCycle && dmaTransferCycles == 513)
+		return;
+	else if(dmaTransferCycles == 513)
+		read(cpu_registers.PC); //Dummy read
+	else if(dmaTransferCycles % 2 == 0)
+		dmaData = read(dmaPage + dmaLowByte++);
+	else if(dmaTransferCycles % 2 == 1)
+		write(0x2004, dmaData);
+
+	--dmaTransferCycles;
+	if(dmaTransferCycles == 0)
+		dmaTransfer = false;
+}
 
 uint8_t CPU::read(uint16_t address) const
 {
@@ -73,7 +90,10 @@ void CPU::write(uint16_t address, uint8_t data)
 		ppu_registers.write(address, data);
 	else if(address == 0x4014) //Trigger DMA Transfer
 	{
-		DMA_Transfer = true;
+		dmaTransfer = true;
+		dmaPage = (data << 8);
+		dmaLowByte = 0x00;
+		dmaTransferCycles = 513 + (oddCycle ? 1 : 0);
 		apu_io_registers.write(address, data);
 	}
 	else if(address < 0x4018) //APU or I/O Registers

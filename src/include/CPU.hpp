@@ -30,8 +30,6 @@ private:
 		uint8_t SR;		//Status
 	};
 
-	void startup();
-
 	Mapper* mapper;
 	CPU_Registers cpu_registers;
 	PPU_Registers& ppu_registers;
@@ -41,17 +39,24 @@ private:
 	//State
 	bool oddCycle;
 	uint8_t currentOP;
-	int cycleCount;
-	uint8_t dataBus;
-	uint16_t addressBus;
+	int cycleCount = 0;
+	uint8_t dataBus = 0x00;
+	uint16_t addressBus = 0x0000;
 	std::function<void()> addressingMode;
 	
 	//Debug
 	DebugInfo debugInfo;
-
-	bool debugEnabled;
+	bool debugEnabled = false;
 	std::fstream& log;
-	int totalCycles;
+	int totalCycles = 0;
+
+	//DMA Transfer
+	bool dmaTransfer = false;
+	int dmaTransferCycles;
+	uint16_t dmaPage;
+	uint8_t dmaLowByte;
+	uint8_t dmaData;
+	void executeDMATransfer();
 
 	//Read/Write
 	uint8_t read(uint16_t address) const;
@@ -60,7 +65,6 @@ private:
 	void push(uint8_t data);
 	void readOPCode();
 	uint8_t readROM();
-	bool DMA_Transfer;
 
 	//Status Register
 	bool if_carry();
