@@ -16,6 +16,8 @@ CPU::CPU(Mapper* map, PPU_Registers& ppu_reg, APU_IO_Registers& apu_io_reg, std:
 	write(0x4015, 0x00);
 	for(uint16_t i = 0x4000; i < 0x4010; ++i)
 		write(i, 0x00);
+	for(uint16_t i = 0x0000; i < 0x2000; ++i)
+		write(i, 0x00);
 	//TODO: set noise channel
 
 	dataBus = 0x00;
@@ -85,12 +87,12 @@ void CPU::write(uint16_t address, uint8_t data)
 uint8_t CPU::pop()
 {
 	++cpu_registers.SP;
-	return read(cpu_registers.SP);
+	return read(0x0100 + cpu_registers.SP);
 }
 
 void CPU::push(uint8_t data)
 {
-	write(cpu_registers.SP, data);
+	write(0x0100 + cpu_registers.SP, data);
 	--cpu_registers.SP;
 }
 
@@ -129,78 +131,78 @@ uint8_t CPU::readROM()
 
 bool CPU::if_carry()
 {
-	return cpu_registers.SR & 0x1;
+	return cpu_registers.SR & 0x01;
 }
 
 bool CPU::if_overflow()
 {
-	return (cpu_registers.SR >> 6) & 0x1;
+	return (cpu_registers.SR >> 6) & 0x01;
 }
 
 bool CPU::if_sign()
 {
-	return (cpu_registers.SR >> 7) & 0x1;
+	return (cpu_registers.SR >> 7) & 0x01;
 }
 
 bool CPU::if_zero()
 {
-	return (cpu_registers.SR >> 1) & 0x1;
+	return (cpu_registers.SR >> 1) & 0x01;
 }
 
 void CPU::set_carry(bool condition)
 {
 	if(condition)
-		cpu_registers.SR |= 0x1;
+		cpu_registers.SR |= 0x01;
 	else
-		cpu_registers.SR &= ~(0x1);
+		cpu_registers.SR &= ~(0x01);
 }
 
 void CPU::set_zero(uint8_t value)
 {
 	if(value == 0)
-		cpu_registers.SR |= 0x1 << 1;
+		cpu_registers.SR |= 0x01 << 1;
 	else
-		cpu_registers.SR &= ~(0x1 << 1);
+		cpu_registers.SR &= ~(0x01 << 1);
 }
 
 void CPU::set_interrupt(bool condition)
 {
 	if(condition)
-		cpu_registers.SR |= 0x1 << 2;
+		cpu_registers.SR |= 0x01 << 2;
 	else
-		cpu_registers.SR &= ~(0x1 << 2);
+		cpu_registers.SR &= ~(0x01 << 2);
 }
 
 void CPU::set_decimal(bool condition)
 {
 	if(condition)
-		cpu_registers.SR |= 0x1 << 3;
+		cpu_registers.SR |= 0x01 << 3;
 	else
-		cpu_registers.SR &= ~(0x1 << 3);
+		cpu_registers.SR &= ~(0x01 << 3);
 }
 
 void CPU::set_break(bool condition)
 {
 	if(condition)
-		cpu_registers.SR |= 0x1 << 4;
+		cpu_registers.SR |= 0x01 << 4;
 	else
-		cpu_registers.SR &= ~(0x1 << 4);
+		cpu_registers.SR &= ~(0x01 << 4);
 }
 
 void CPU::set_overflow(bool condition)
 {
 	if(condition)
-		cpu_registers.SR |= 0x1 << 6;
+		cpu_registers.SR |= 0x01 << 6;
 	else
-		cpu_registers.SR &= ~(0x1 << 6);
+		cpu_registers.SR &= ~(0x01 << 6);
 }
 
 void CPU::set_sign(uint8_t value)
 {
 	if(value >= 0x80)
-		cpu_registers.SR |= 0x1 << 7;
+		cpu_registers.SR |= 0x01 << 7;
 	else
-		cpu_registers.SR &= ~(0x1 << 7);
+		cpu_registers.SR &= ~(0x01 << 7);
 }
 
 void CPU::NMI_Vector()
@@ -371,18 +373,18 @@ void CPU::indirectX(std::function<void()> executeInstruction)
 	switch(cycleCount)
 	{
 		case 1:
-			addressBus = dataBus = readROM();
+			dataBus = readROM();
 			break;
 		case 2:
-			read(addressBus); //Dummy read
+			read(dataBus); //Dummy read
 			dataBus += cpu_registers.X;
 			break;
 		case 3:
-			addressBus = dataBus;
-			dataBus = read(addressBus);
+			addressBus = read(dataBus);
+			++dataBus;
 			break;
 		case 4:
-			addressBus = (read(addressBus + 1) << 8) + dataBus;
+			addressBus = (read(dataBus) << 8) + addressBus;
 			break;
 		case 5:
 			dataBus = read(addressBus);
@@ -477,7 +479,7 @@ void CPU::zeroPage_Store(const uint8_t& regValue)
 			addressBus = readROM();
 			break;
 		case 2:
-			if(debugEnabled) debugInfo.memoryValue = read(addressBus);
+			if(debugEnabled) { debugInfo.memoryValue = read(addressBus); debugInfo.address = addressBus; };
 			write(addressBus, regValue);
 			break;
 		case 3:
@@ -498,7 +500,7 @@ void CPU::zeroPageIndexed_Store(const uint8_t& regValue, const uint8_t& index)
 			addressBus = dataBus;
 			break;
 		case 3:
-			if(debugEnabled) debugInfo.memoryValue = read(addressBus);
+			if(debugEnabled) { debugInfo.memoryValue = read(addressBus); debugInfo.address = addressBus; };
 			write(addressBus, regValue);
 			break;
 		case 4:
@@ -517,7 +519,7 @@ void CPU::absolute_Store(const uint8_t& regValue)
 			addressBus = (readROM() << 8) + addressBus;
 			break;
 		case 3:
-			if(debugEnabled) debugInfo.memoryValue = read(addressBus);
+			if(debugEnabled) { debugInfo.memoryValue = read(addressBus); debugInfo.address = addressBus; };
 			write(addressBus, regValue);
 			break;
 		case 4:
@@ -540,7 +542,7 @@ void CPU::absoluteIndexed_Store(const uint8_t& regValue, const uint8_t& index)
 			addressBus += index;
 			break;
 		case 4:
-			if(debugEnabled) debugInfo.memoryValue = read(addressBus);
+			if(debugEnabled) { debugInfo.memoryValue = read(addressBus); debugInfo.address = addressBus; };
 			write(addressBus, regValue);
 			break;
 		case 5:
@@ -553,21 +555,21 @@ void CPU::indirectX_Store(const uint8_t& regValue)
 	switch(cycleCount)
 	{
 		case 1:
-			addressBus = dataBus = readROM();
+			dataBus = readROM();
 			break;
 		case 2:
-			read(addressBus); //Dummy read
+			read(dataBus); //Dummy read
 			dataBus += cpu_registers.X;
 			break;
 		case 3:
-			addressBus = dataBus;
-			dataBus = read(addressBus);
+			addressBus = read(dataBus);
+			++dataBus;
 			break;
 		case 4:
-			addressBus = (read(addressBus + 1) << 8) + dataBus;
+			addressBus = (read(dataBus) << 8) + addressBus;
 			break;
 		case 5:
-			if(debugEnabled) debugInfo.memoryValue = read(addressBus);
+			if(debugEnabled) { debugInfo.memoryValue = read(addressBus); debugInfo.address = addressBus; };
 			write(addressBus, regValue);
 			break;
 		case 6:
@@ -593,7 +595,7 @@ void CPU::indirectY_Store(const uint8_t& regValue)
 			addressBus += cpu_registers.Y;
 			break;
 		case 5:
-			if(debugEnabled) debugInfo.memoryValue = read(addressBus);
+			if(debugEnabled) { debugInfo.memoryValue = read(addressBus); debugInfo.address = addressBus; };
 			write(addressBus, regValue);
 			break;
 		case 6:
@@ -628,7 +630,7 @@ void CPU::zeroPage_RMW(std::function<void()> executeInstruction)
 			dataBus = read(addressBus);
 			break;
 		case 3:
-			write(addressBus, 0x00); //Write is performed here while data is being modified
+			write(addressBus, 0xFF); //Write is performed here while data is being modified
 			break;
 		case 4:
 			executeInstruction();
@@ -655,7 +657,7 @@ void CPU::zeroPageX_RMW(std::function<void()> executeInstruction)
 			dataBus = read(addressBus);
 			break;
 		case 4:
-			write(addressBus, 0x00); //Write is performed here while data is being modified
+			write(addressBus, 0xFF); //Write is performed here while data is being modified
 			break;
 		case 5:
 			executeInstruction();
@@ -681,7 +683,7 @@ void CPU::absolute_RMW(std::function<void()> executeInstruction)
 			dataBus = read(addressBus);
 			break;
 		case 4:
-			write(addressBus, 0x00); //Write is performed here while data is being modified
+			write(addressBus, 0xFF); //Write is performed here while data is being modified
 			break;
 		case 5:
 			executeInstruction();
@@ -711,7 +713,7 @@ void CPU::absoluteX_RMW(std::function<void()> executeInstruction)
 			dataBus = read(addressBus);
 			break;
 		case 5:
-			write(addressBus, 0x00); //Write is performed here while data is being modified
+			write(addressBus, 0xFF); //Write is performed here while data is being modified
 			break;
 		case 6:
 			executeInstruction();
@@ -889,7 +891,7 @@ void CPU::indirectJMP()
 			dataBus = read(addressBus);
 			break;
 		case 4:
-			addressBus = read(addressBus + 1) + dataBus;
+			addressBus = read((addressBus & 0xFF00) + ((addressBus + 1) & 0xFF)) + dataBus; //Recreate hardware bug that prevents indirect JMP from crossing page
 			break;
 		case 5:
 			if(debugEnabled) debugInfo.address = addressBus;
@@ -906,7 +908,7 @@ void CPU::JSR()
 			addressBus = readROM();
 			break;
 		case 2:
-			read(cpu_registers.SP); //Dummy read
+			read(0x0100 + cpu_registers.SP); //Dummy read
 			break;
 		case 3:
 			push(cpu_registers.PC >> 8);
@@ -1006,7 +1008,7 @@ void CPU::PLA()
 			read(cpu_registers.PC); //Dummy read
 			break;
 		case 2:
-			read(cpu_registers.SP); //Dummy read
+			read(0x0100 + cpu_registers.SP); //Dummy read
 			break;
 		case 3:
 			cpu_registers.AC = pop();
@@ -1026,11 +1028,16 @@ void CPU::PLP()
 			read(cpu_registers.PC); //Dummy read
 			break;
 		case 2:
-			read(cpu_registers.SP); //Dummy read
+			read(0x0100 + cpu_registers.SP); //Dummy read
 			break;
 		case 3:
-			cpu_registers.SR = pop();
+		{
+			uint8_t temp = pop();
+			temp |= 0x1 << 5;
+			temp &= ~(0x1 << 4);
+			cpu_registers.SR = temp;
 			break;
+		}
 		case 4:
 			readOPCode();
 	}
@@ -1044,9 +1051,9 @@ void CPU::ROL()
 	if(if_carry())
 		temp |= 0x01;
 	set_carry(temp > 0xFF);
-	cpu_registers.AC = temp & 0xFF;
-	set_sign(cpu_registers.AC);
-	set_zero(cpu_registers.AC);
+	dataBus = temp;
+	set_sign(dataBus);
+	set_zero(dataBus);
 }
 
 void CPU::ROR()
@@ -1057,9 +1064,9 @@ void CPU::ROR()
 		temp |= 0x100;
 	set_carry(temp & 0x01);
 	temp >>= 1;
-	cpu_registers.AC = temp & 0xFF;
-	set_sign(cpu_registers.AC);
-	set_zero(cpu_registers.AC);
+	dataBus = temp;
+	set_sign(dataBus);
+	set_zero(dataBus);
 }
 
 void CPU::RTI()
@@ -1070,11 +1077,16 @@ void CPU::RTI()
 			read(cpu_registers.PC); //Dummy read
 			break;
 		case 2:
-			read(cpu_registers.SP); //Dummy read
+			read(0x0100 + cpu_registers.SP); //Dummy read
 			break;
 		case 3:
-			cpu_registers.SR = pop();
+		{
+			uint8_t temp = pop();
+			temp |= 0x1 << 5;
+			temp &= ~(0x1 << 4);
+			cpu_registers.SR = temp;
 			break;
+		}
 		case 4:
 			addressBus = pop();
 			break;
@@ -1095,7 +1107,7 @@ void CPU::RTS()
 			read(cpu_registers.PC); //Dummy read
 			break;
 		case 2:
-			read(cpu_registers.SP); //Dummy read
+			read(0x0100 + cpu_registers.SP); //Dummy read
 			break;
 		case 3:
 			addressBus = pop();
@@ -1154,8 +1166,6 @@ void CPU::TXA()
 void CPU::TXS()
 {
 	cpu_registers.SP = cpu_registers.X;
-	set_sign(cpu_registers.SP);
-	set_zero(cpu_registers.SP);
 }
 
 void CPU::TYA()

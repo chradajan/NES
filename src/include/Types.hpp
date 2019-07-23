@@ -120,7 +120,7 @@ private:
 				ss << " $" << std::setw(4) << (uint)address << " = " << std::setw(2) << (uint)memoryValue;
 				break;
 			case ZEROPAGE:
-				ss << " $" << std::setw(2) << (uint)firstByte << " = " << std::setw(2) << (uint)memoryValue;
+				ss << " $" << std::setw(2) << (uint)address << " = " << std::setw(2) << (uint)memoryValue;
 				break;
 			case ZEROPAGEINDEXED:
 			case ABSOLUTEINDEXED:
@@ -131,6 +131,9 @@ private:
 				ss << " $" << std::setw(2) << (uint)secondByte << std::setw(2) << (uint)firstByte;
 				break;
 			case PREINDEXEDINDIRECT:
+				ss << " ($" << std::setw(2) << (uint)firstByte << ",X) @ " << std::setw(2) << (uint)((firstByte + X) & 0xFF);
+				ss << " = " << std::setw(4) << (uint)address << " = " << std::setw(2) << (uint)memoryValue;
+				break;
 			case POSTINDEXEDINDIRECT:
 				break;
 			case RELATIVE:
