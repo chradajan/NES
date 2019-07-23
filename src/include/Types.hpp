@@ -35,12 +35,6 @@ enum AddressingMode
 	PREINDEXEDINDIRECT,
 	POSTINDEXEDINDIRECT,
 	RELATIVE,
-	ZEROPAGESTORE,
-	ZEROPAGEINDEXEDSTORE,
-	ABSOLUTESTORE,
-	ABSOLUTEINDEXEDSTORE,
-	PREINDEXEDINDIRECTSTORE,
-	POSTINDEXEDINDIRECTSTORE,
 	ABSOLUTEJMP
 };
 
@@ -152,75 +146,6 @@ private:
 	}
 };
 
-
-struct Instruction
-{
-	// std::string humanInstruction(std::string humanReadableOPCode, AddressingMode mode, uint16_t debugAddress, uint8_t debugMemoryValue)
-	// {
-	// 	std::stringstream ss;
-	// 	ss << humanReadableOPCode << std::hex << std::uppercase << std::setfill('0');
-
-	// 	switch(mode)
-	// 	{
-	// 		case ACCUMULATOR:
-	// 			ss << " A";
-	// 			break;
-	// 		case IMMEDIATE:
-	// 			ss << " #$" << std::setfill('0') << std::setw(2) << (uint)firstByte;
-	// 			break;
-	// 		case IMPLIED:
-	// 			break;
-	// 		case ABSOLUTE:
-	// 		case ABSOLUTEINDEXED:
-	// 			ss << " $" << std::setw(2) << (uint)secondByte << std::setw(2) << (uint)firstByte;
-	// 			break;
-	// 		case INDIRECT:
-	// 			ss << " ($" << std::setw(2) << (uint)secondByte << std::setw(2) << (uint)firstByte;
-	// 			ss << ")" << " = " << std::setw(4) << (uint)debugAddress;
-	// 			break;
-	// 		case PREINDEXEDINDIRECT:
-				
-	// 			break;
-	// 		case POSTINDEXEDINDIRECTSTORE:
-	// 			break;
-	// 		case RELATIVE:
-	// 			ss << " $" << std::setw(4) << (uint)debugAddress;
-	// 			break;
-	// 		case ZEROPAGE:
-	// 		case ZEROPAGEINDEXED:
-	// 			ss << " $" << std::setw(2) << (uint)firstByte;
-	// 			break;
-
-	// 		case ZEROPAGESTORE:
-	// 		case ZEROPAGEINDEXEDSTORE:
-	// 			ss << " $" << std::setw(2) << (uint)firstByte << " = " << std::setw(2) << (uint)debugMemoryValue;
-	// 			break;
-	// 		case ABSOLUTESTORE:
-	// 		case ABSOLUTEINDEXEDSTORE:
-	// 			ss << " $" << std::setw(2) << (uint)secondByte << std::setw(2) << (uint)firstByte;
-	// 			ss << " = " << std::setw(2) << (uint)debugMemoryValue;
-	// 			break;
-	// 		case PREINDEXEDINDIRECTSTORE:
-	// 			ss << " ($" << std::setw(2) << (uint)firstByte << ",X) @ " << std::setw(2) << (uint)((X + firstByte) & 0xFF);
-	// 			ss << " = " << std::setw(4) << (uint)debugAddress << " = " << std::setw(2) << (uint)debugMemoryValue;
-	// 			break;
-	// 		case POSTINDEXEDINDIRECTSTORE:
-	// 			ss << " ($" << std::setw(2) << (uint)firstByte << "),Y = " << std::setw(4) << (uint)debugAddress;
-	// 			ss << " @ " << std::setw(4) << (uint)((debugAddress + Y) & 0xFFFF) << " = " << std::setw(2) << (uint)debugMemoryValue;
-	// 			break;
-	// 		default:
-	// 			ss << " TODO";
-	// 	}
-
-	// 	humanReadableOPCode = ss.str();
-
-	// 	for(int i = 0; i < 32 - (int)humanReadableOPCode.length(); ++i)
-	// 		ss << " ";
-
-	// 	return ss.str();
-	// }
-};
-
 struct HeaderData
 {
 	uint8_t PRG_ROM_SIZE;
@@ -288,6 +213,7 @@ struct PPU_Registers
 				break;
 			case 0x2004:
 				OAMDATA = data;
+				++OAMADDR;
 				break;
 			case 0x2005:
 				PPUSTROLL = data;

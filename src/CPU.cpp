@@ -50,7 +50,7 @@ void CPU::tick()
 
 CPU::~CPU() {}
 
-void executeDMATransfer()
+void CPU::executeDMATransfer()
 {
 	if(dmaTransferCycle == 514)
 		read(cpu_registers.PC); //Dummy read
