@@ -5,8 +5,8 @@
 NES::NES(const char* file, std::fstream& cpuLog)
 {
 	loadROM(file);
-	cpu = new CPU(cart, ppu_registers, apu_io_registers, cpuLog);
-	ppu = new PPU(cart, ppu_registers);
+	ppu = new PPU(cart);
+	cpu = new CPU(cart, ppu->getRegisters(), apu_io_registers, cpuLog);
 }
 
 void NES::tick()

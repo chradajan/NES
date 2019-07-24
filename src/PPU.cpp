@@ -1,23 +1,29 @@
 #include "include/PPU.hpp"
 
-PPU::PPU(Cartridge* cart, PPU_Registers& ppu_reg)
-: cart(cart), ppu_registers(ppu_reg)
+PPU::PPU(Cartridge* cart)
+: cart(cart)
 {
+	ppu_registers = new PPU_Registers(*this);
 }
 
 void PPU::tick()
 {
-	++ppu_registers.cycle;
-	if(ppu_registers.cycle == 341)
+	++ppu_registers->cycle;
+	if(ppu_registers->cycle == 341)
 	{
-		++ppu_registers.scanline;
-		ppu_registers.cycle = 0;
+		++ppu_registers->scanline;
+		ppu_registers->cycle = 0;
 	}
+}
+
+PPU_Registers& PPU::getRegisters()
+{
+	return *ppu_registers;
 }
 
 PPU::~PPU()
 {
-
+	delete ppu_registers;
 }
 
 uint8_t PPU::read(uint16_t address) const
@@ -91,14 +97,14 @@ void PPU::write(uint16_t address, uint8_t data)
 void PPU::setSpriteOverflowFlag(bool condition)
 {
 	if(condition)
-		ppu_registers.PPUSTATUS |= 0x1 << 5;
+		ppu_registers->PPUSTATUS |= 0x1 << 5;
 	else
-		ppu_registers.PPUSTATUS &= ~(0x1 << 5);
+		ppu_registers->PPUSTATUS &= ~(0x1 << 5);
 }
 
 bool PPU::ifSpriteOverflow()
 {
-	return (ppu_registers.PPUSTATUS >> 5) & 0x1;
+	return (ppu_registers->PPUSTATUS >> 5) & 0x1;
 }
 
 void PPU::evaluateSprites()

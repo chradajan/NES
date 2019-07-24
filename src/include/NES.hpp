@@ -18,7 +18,7 @@ public:
 
 private:
 	HeaderData header;
-	PPU_Registers ppu_registers;
+	//PPU_Registers ppu_registers;
 	APU_IO_Registers apu_io_registers;	
 	Cartridge* cart;
 	CPU* cpu;

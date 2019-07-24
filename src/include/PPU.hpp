@@ -9,16 +9,19 @@
 class PPU
 {
 public:
-	PPU(Cartridge* cart, PPU_Registers& ppu_reg);
+	PPU(Cartridge* cart);
 	void tick();
+	PPU_Registers& getRegisters();
 	~PPU();
 private:
+	friend struct PPU_Registers;
+
 	uint8_t VRAM[0x800];
 	uint8_t primaryOAM[0x100];
 	uint8_t secondaryOAM[0x20];
 	uint8_t paletteRAM[0x20];
 	Cartridge* cart;
-	PPU_Registers& ppu_registers;
+	PPU_Registers* ppu_registers;
 
 	int scanlineY;
 	int scanlineX;

@@ -12,7 +12,7 @@
 class CPU
 {
 public:
-	CPU(Cartridge* cart, PPU_Registers& ppu_reg, APU_IO_Registers& apu_io_reg, std::fstream& cpuLog, bool debugEnable = false);
+	CPU(Cartridge* cart, PPU_Registers& ppu_reg, APU_IO_Registers& apu_io_reg, std::fstream& cpuLog);
 	void reset();
 	void tick();
 	~CPU();
@@ -47,7 +47,7 @@ private:
 	
 	//Debug
 	DebugInfo debugInfo;
-	bool debugEnabled = false;
+	bool debugEnabled;
 	std::fstream& log;
 	int totalCycles = 0;
 

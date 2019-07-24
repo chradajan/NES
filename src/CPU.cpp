@@ -2,11 +2,10 @@
 
 //TODO: Implement IRQ and NMI interrupts. Implement OMA transfer
 
-CPU::CPU(Cartridge* cart, PPU_Registers& ppu_reg, APU_IO_Registers& apu_io_reg, std::fstream& cpuLog, bool debugEnable = false) 
-: cart(cart), ppu_registers(ppu_reg), apu_io_registers(apu_io_reg), log(cpuLog), debugEnabled(debugEnable)
+CPU::CPU(Cartridge* cart, PPU_Registers& ppu_reg, APU_IO_Registers& apu_io_reg, std::fstream& cpuLog) 
+: cart(cart), ppu_registers(ppu_reg), apu_io_registers(apu_io_reg), log(cpuLog)
 {
-	//cpu_registers.SR = 0x34;
-	cpu_registers.SR = 0x24; //For nestest
+	cpu_registers.SR = 0x34;
 	cpu_registers.AC = 0;
 	cpu_registers.X = 0;
 	cpu_registers.Y = 0;
@@ -23,6 +22,8 @@ CPU::CPU(Cartridge* cart, PPU_Registers& ppu_reg, APU_IO_Registers& apu_io_reg, 
 	cycleCount = 0;
 	totalCycles = 0;
 	oddCycle = true;
+
+	debugEnabled = false;
 
 	Reset_Vector();
 }

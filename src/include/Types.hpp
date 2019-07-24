@@ -148,6 +148,8 @@ struct HeaderData
 	uint8_t Flags6, Flags7, Flags8, Flags9, Flags10;
 };
 
+class PPU;
+
 struct PPU_Registers
 {
 	uint8_t PPUCTRL;
@@ -162,6 +164,8 @@ struct PPU_Registers
 	//For cpu debugging
 	int cycle;
 	int scanline;
+
+	PPU_Registers(PPU& p) : ppu(p) {} 
 
 	uint8_t read(uint16_t address)
 	{
@@ -225,6 +229,7 @@ struct PPU_Registers
 
 private:
 	uint8_t PPUDATA_Buffer;
+	PPU& ppu;
 
 	void incremenetPPUADDR()
 	{
