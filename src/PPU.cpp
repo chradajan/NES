@@ -65,13 +65,9 @@ void PPU::write(uint16_t address, uint8_t data)
 	else if(address < 0x3000) //Nametable
 	{
 		if(cart->verticalMirroring())
-		{
 			address = (address - 0x2000) - (address / 0x2800 * 0x800);
-		}
 		else
-		{
 			address = (address - 0x2000) - (address / 0x2400 * 0x400) - (address / 0x2C00 * 0x400);
-		}
 		VRAM[address] = data;
 	}
 	else if(address < 0x3F00) //Nametable Mirroring

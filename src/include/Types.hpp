@@ -187,8 +187,20 @@ struct PPU_Registers
 			case 0x2006:
 				return PPUADDR;
 			case 0x2007:
+			{
+				uint8_t temp;
+				if(PPUADDR <= 0x3EFF)
+				{
+					temp = PPUDATA_Buffer;
+					PPUDATA_Buffer = ppu.VRAM[PPUADDR];
+				}
+				else
+				{
+					temp = ppu.VRAM[PPUADDR];
+				}
 				incremenetPPUADDR();
-				return PPUDATA;
+				return temp;;
+			}
 		}
 		//This shouldn't happen
 		return 0x00;
