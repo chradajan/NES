@@ -2,25 +2,12 @@
 #define TYPES_H
 
 #include <iostream>
-#include <exception>
 #include <string>
 #include <sstream>
 #include <cstdint>
 #include <iostream>
 #include <fstream>
 #include <iomanip>
-
-class Unsupported : virtual public std::exception
-{
-private:
-	std::string errorMessage;
-public:
-	explicit Unsupported(std::string message) : errorMessage(message) {}
-	virtual const char* what() const throw()
-	{
-		return errorMessage.c_str();
-	}
-};
 
 enum AddressingMode
 {

@@ -3,6 +3,7 @@
 #include <cstdint>
 #include "Mapper.hpp"
 #include "../include/Types.hpp"
+#include "../include/Exceptions.hpp"
 
 class NROM : public Mapper
 {

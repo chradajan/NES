@@ -22,8 +22,7 @@ NROM::NROM(HeaderData& header, std::ifstream& rom)
 uint8_t NROM::readPRG(uint16_t address) const
 {
 	if(address < 0x8000)
-		throw;
-		//TODO: Throw exception
+		throw IllegalROMRead("Attempted to read PRG ROM", address);
 
 	if(PRG_Mirroring)
 		address = (address % 0xC000) + ((address / 0xC000) * 0x8000) - 0x8000;
@@ -36,23 +35,20 @@ uint8_t NROM::readPRG(uint16_t address) const
 void NROM::writePRG(uint16_t address, uint8_t data)
 {
 	(void)address; (void)data;
-	throw;
-	//TODO: Figure out what happens when a write happens to NROM
-	//Probably throw an exception
+	throw IllegalROMWrite("Attempted to write PRG ROM", address, data);
 }
 
 uint8_t NROM::readCHR(uint16_t address) const
 {
 	if(address > 0x1FFF)
-		throw;
-		//TODO: Throw exception
+		throw IllegalROMRead("Attempted to read CHR ROM", address);
 	return CHR_ROM[address];
 }
 
 void NROM::writeCHR(uint16_t address, uint8_t data)
 {
 	(void)address; (void)data;
-	throw;
+	throw IllegalROMWrite("Attempted to write CHR ROM", address, data);
 	//TODO: Figure out what happens when a write happens to NROM
 	//Probably throw an exception
 }

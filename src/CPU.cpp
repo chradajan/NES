@@ -52,7 +52,7 @@ CPU::~CPU() {}
 
 void CPU::executeDMATransfer()
 {
-	if(dmaTransferCycle == 514)
+	if(dmaTransferCycles == 514)
 		read(cpu_registers.PC); //Dummy read
 	else if(oddCycle && dmaTransferCycles == 513)
 		return;
@@ -696,10 +696,9 @@ void CPU::absolute_RMW(std::function<void()> executeInstruction)
 			addressBus = readROM();
 			break;
 		case 2:
-			dataBus = readROM();
+			addressBus = (readROM() << 8) + addressBus;
 			break;
 		case 3:
-			addressBus = (addressBus << 8) + dataBus;
 			dataBus = read(addressBus);
 			break;
 		case 4:
@@ -1926,7 +1925,7 @@ void CPU::decodeOP()
 			addressingMode = std::bind(&CPU::implied, this, executeInstruction);
 			break;
 		default:
-			throw Unsupported("Bad OPCode");
+			throw UnkownOPCode(currentOP, cycleCount, totalCycles, cpu_registers.PC);
 	}
 	addressingMode();
 }

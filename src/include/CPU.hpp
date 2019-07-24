@@ -7,6 +7,7 @@
 #include <string>
 #include "../mappers/Mapper.hpp"
 #include "Types.hpp"
+#include "Exceptions.hpp"
 
 class CPU
 {

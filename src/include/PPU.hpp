@@ -4,6 +4,7 @@
 #include <fstream>
 #include "Types.hpp"
 #include "../mappers/Mapper.hpp"
+#include "Exceptions.hpp"
 
 class PPU
 {

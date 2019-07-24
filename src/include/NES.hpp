@@ -7,6 +7,7 @@
 #include "PPU.hpp"
 #include "Types.hpp"
 #include "../mappers/Mapper.hpp"
+#include "Exceptions.hpp"
 
 class NES
 {
