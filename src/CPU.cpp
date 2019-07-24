@@ -420,16 +420,18 @@ void CPU::indirectY(std::function<void()> executeInstruction)
 	switch(cycleCount)
 	{
 		case 1:
-			addressBus = readROM();
+			dataBus = readROM();
 			break;
 		case 2:
-			dataBus = read(addressBus);
+			addressBus = read(dataBus);
+			++dataBus;
 			break;
 		case 3:
-			addressBus = (read(addressBus + 1) << 8) + dataBus;
+			addressBus = (read(dataBus) << 8) + addressBus;
+			if(debugEnabled) debugInfo.postIndexedAddress = addressBus;
 			break;
 		case 4:
-			if(dataBus + cpu_registers.Y <= 0xFF)
+			if(((addressBus & 0xFF) + cpu_registers.Y) <= 0xFF)
 			{
 				addressBus += cpu_registers.Y;
 				dataBus = read(addressBus);
@@ -908,9 +910,10 @@ void CPU::indirectJMP()
 			break;
 		case 3:
 			dataBus = read(addressBus);
+			addressBus = ((addressBus & 0xFF00) + ((addressBus + 1) & 0xFF)); //Recreate hardware bug that prevents indirect JMP from crossing page
 			break;
 		case 4:
-			addressBus = read((addressBus & 0xFF00) + ((addressBus + 1) & 0xFF)) + dataBus; //Recreate hardware bug that prevents indirect JMP from crossing page
+			addressBus = (read(addressBus) << 8) + dataBus;
 			break;
 		case 5:
 			if(debugEnabled) debugInfo.address = addressBus;
@@ -1887,7 +1890,7 @@ void CPU::decodeOP()
 			addressingMode = std::bind(&CPU::zeroPage_Store, this, cpu_registers.Y);
 			break;
 		case 0x94: //Zero Page,X STY
-			if(debugEnabled) { debugInfo.OPCode = "STY"; debugInfo.mode = ZEROPAGEINDEXED; debugInfo.indexString = "x"; }
+			if(debugEnabled) { debugInfo.OPCode = "STY"; debugInfo.mode = ZEROPAGEINDEXED; debugInfo.indexString = "X"; }
 			addressingMode = std::bind(&CPU::zeroPageIndexed_Store, this, cpu_registers.Y, cpu_registers.X);
 			break;
 		case 0x8C: //Absolute STY

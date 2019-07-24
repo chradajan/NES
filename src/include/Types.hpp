@@ -30,7 +30,7 @@ struct DebugInfo
 	std::string OPCode;
 	AddressingMode mode;
 	uint8_t OPCodeHex, AC, X, Y, SP, P, memoryValue;
-	uint16_t PC, address, firstByte, secondByte;
+	uint16_t PC, address, postIndexedAddress, firstByte, secondByte;
 	int ppuCycle, ppuScanline, cpuCycle;
 	std::string indexString;
 
@@ -104,9 +104,12 @@ private:
 				ss << " $" << std::setw(2) << (uint)address << " = " << std::setw(2) << (uint)memoryValue;
 				break;
 			case ZEROPAGEINDEXED:
+				ss << " $" << std::setw(2) << (uint)firstByte << "," << indexString << " @ ";
+				ss << std::setw(2) << (uint)(address) << " = " << std::setw(2) << (uint)memoryValue;
+				break;
 			case ABSOLUTEINDEXED:
 				ss << " $" << std::setw(2) << (uint)secondByte << std::setw(2) << (uint)firstByte << "," << indexString << " @ ";
-				ss << (uint)(address) << " = " << std::setw(2) << (uint)memoryValue;
+				ss << std::setw(4) << (uint)(address) << " = " << std::setw(2) << (uint)memoryValue;
 				break;
 			case ABSOLUTEJMP:
 				ss << " $" << std::setw(2) << (uint)secondByte << std::setw(2) << (uint)firstByte;
@@ -116,9 +119,14 @@ private:
 				ss << " = " << std::setw(4) << (uint)address << " = " << std::setw(2) << (uint)memoryValue;
 				break;
 			case POSTINDEXEDINDIRECT:
+				ss << " ($" << std::setw(2) << (uint)firstByte << "),Y = " << std::setw(4) << (uint)postIndexedAddress << " @ ";
+				ss << std::setw(4) << (uint)address << " = " << std::setw(2) << (uint)memoryValue;
 				break;
 			case RELATIVE:
 				ss << " $" << std::setw(4) << (uint)address;
+				break;
+			case INDIRECT:
+				ss << " ($" << std::setw(2) << (uint)secondByte << std::setw(2) << (uint)firstByte << ") = " << std::setw(4) << (uint)address;
 				break;
 			default:
 				break;
