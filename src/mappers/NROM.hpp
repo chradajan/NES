@@ -1,11 +1,11 @@
 #ifndef NROM_H
 #define NROM_H
 #include <cstdint>
-#include "Mapper.hpp"
+#include "../include/Cartridge.hpp"
 #include "../include/Types.hpp"
 #include "../include/Exceptions.hpp"
 
-class NROM : public Mapper
+class NROM : public Cartridge
 {
 public:
 	NROM(HeaderData& header, std::ifstream& rom);

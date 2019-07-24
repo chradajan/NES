@@ -5,8 +5,8 @@
 NES::NES(const char* file, std::fstream& cpuLog)
 {
 	loadROM(file);
-	cpu = new CPU(mapper, ppu_registers, apu_io_registers, cpuLog);
-	ppu = new PPU(mapper, ppu_registers);
+	cpu = new CPU(cart, ppu_registers, apu_io_registers, cpuLog);
+	ppu = new PPU(cart, ppu_registers);
 }
 
 void NES::tick()
@@ -21,7 +21,7 @@ NES::~NES()
 {
 	delete cpu;
 	delete ppu;
-	delete mapper;
+	delete cart;
 }
 
 void NES::loadROM(const char* file)
@@ -32,7 +32,7 @@ void NES::loadROM(const char* file)
 	switch(mapperNumber)
 	{
 		case 0:
-			mapper = new NROM(header, rom);
+			cart = new NROM(header, rom);
 			break;
 		default:
 			throw;

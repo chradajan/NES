@@ -2,8 +2,8 @@
 
 //TODO: Implement IRQ and NMI interrupts. Implement OMA transfer
 
-CPU::CPU(Mapper* map, PPU_Registers& ppu_reg, APU_IO_Registers& apu_io_reg, std::fstream& cpuLog) 
-: mapper(map), ppu_registers(ppu_reg), apu_io_registers(apu_io_reg), log(cpuLog)
+CPU::CPU(Cartridge* cart, PPU_Registers& ppu_reg, APU_IO_Registers& apu_io_reg, std::fstream& cpuLog, bool debugEnable = false) 
+: cart(cart), ppu_registers(ppu_reg), apu_io_registers(apu_io_reg), log(cpuLog), debugEnabled(debugEnable)
 {
 	//cpu_registers.SR = 0x34;
 	cpu_registers.SR = 0x24; //For nestest
@@ -21,9 +21,10 @@ CPU::CPU(Mapper* map, PPU_Registers& ppu_reg, APU_IO_Registers& apu_io_reg, std:
 	//TODO: set noise channel
 
 	cycleCount = 0;
-	totalCycles = 4;
+	totalCycles = 0;
 	oddCycle = true;
-	debugEnabled = true;
+
+	Reset_Vector();
 }
 
 void CPU::reset()
@@ -40,8 +41,6 @@ void CPU::tick()
 
 	if(dmaTransfer)
 		executeDMATransfer();
-	else if(totalCycles < 8)
-		Reset_Vector();
 	else if(cycleCount == 1)
 		decodeOP();
 	else
@@ -79,7 +78,7 @@ uint8_t CPU::read(uint16_t address) const
 	else if(address < 0x4020) //Disabled APU and I/O Functionality
 		throw Unsupported("CPU Test Mode Disabled");
 	else //Cartridge Space
-		return mapper->readPRG(address);
+		return cart->readPRG(address);
 }
 
 void CPU::write(uint16_t address, uint8_t data)
@@ -101,7 +100,7 @@ void CPU::write(uint16_t address, uint8_t data)
 	else if(address < 0x4020) //Disabled APU and I/O Functionality
 		throw Unsupported("CPU Test Mode Disabled");
 	else //Cartridge Space
-		mapper->writePRG(address, data);
+		cart->writePRG(address, data);
 }
 
 uint8_t CPU::pop()
@@ -241,22 +240,11 @@ void CPU::NMI_Vector()
 	}
 }
 
-void CPU::Reset_Vector() //TODO:fix this
+void CPU::Reset_Vector()
 {
-	switch(cycleCount)
-	{
-		case 1:
-			addressBus = read(0xFFFC);
-			break;
-		case 2:
-			addressBus = (read(0xFFFD) << 8) + addressBus;
-			break;
-		case 3:
-			cpu_registers.PC = addressBus - 4;
-			ppu_registers.cycle = 0;
-			ppu_registers.scanline = 0;
-			readOPCode();
-	}
+		addressBus = read(0xFFFC);
+		addressBus = (read(0xFFFD) << 8) + addressBus;
+		cpu_registers.PC = addressBus;
 }
 
 void CPU::IRQ_BRK_Vector()

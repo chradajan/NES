@@ -1,9 +1,8 @@
 #include "include/PPU.hpp"
 
-PPU::PPU(Mapper* map, PPU_Registers& ppu_reg)
-: mapper(map), ppu_registers(ppu_reg)
+PPU::PPU(Cartridge* cart, PPU_Registers& ppu_reg)
+: cart(cart), ppu_registers(ppu_reg)
 {
-
 }
 
 void PPU::tick()
@@ -24,22 +23,18 @@ PPU::~PPU()
 uint8_t PPU::read(uint16_t address) const
 {
 	if(address < 0x2000) //Pattern Table
-		return mapper->readCHR(address);
+		return cart->readCHR(address);
 	else if(address < 0x3000) //Nametable
 	{
-		if(mapper->verticalMirroring())
-		{
+		if(cart->verticalMirroring())
 			address = (address - 0x2000) - (address / 0x2800 * 0x800);
-		}
 		else
-		{
 			address = (address - 0x2000) - (address / 0x2400 * 0x400) - (address / 0x2C00 * 0x400);
-		}
 		return VRAM[address];
 	}
 	else if(address < 0x3F00) //Nametable Mirroring
 	{
-		if(mapper->verticalMirroring())
+		if(cart->verticalMirroring())
 		{
 			address -= 0x1000;
 			address = (address - 0x2000) - (address / 0x2800 * 0x800);
@@ -60,10 +55,10 @@ uint8_t PPU::read(uint16_t address) const
 void PPU::write(uint16_t address, uint8_t data)
 {
 	if(address < 0x2000) //Pattern Table
-		mapper->writeCHR(address, data);
+		cart->writeCHR(address, data);
 	else if(address < 0x3000) //Nametable
 	{
-		if(mapper->verticalMirroring())
+		if(cart->verticalMirroring())
 		{
 			address = (address - 0x2000) - (address / 0x2800 * 0x800);
 		}
@@ -75,7 +70,7 @@ void PPU::write(uint16_t address, uint8_t data)
 	}
 	else if(address < 0x3F00) //Nametable Mirroring
 	{
-		if(mapper->verticalMirroring())
+		if(cart->verticalMirroring())
 		{
 			address -= 0x1000;
 			address = (address - 0x2000) - (address / 0x2800 * 0x800);

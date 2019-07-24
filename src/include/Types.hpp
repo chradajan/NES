@@ -163,7 +163,7 @@ struct PPU_Registers
 	int cycle;
 	int scanline;
 
-	uint8_t read(uint16_t address) const
+	uint8_t read(uint16_t address)
 	{
 		address = (address < 0x2008 ? address : address - ((address / 0x0008) * 0x0008) + 0x2000); 
 		switch(address)
@@ -183,6 +183,7 @@ struct PPU_Registers
 			case 0x2006:
 				return PPUADDR;
 			case 0x2007:
+				incremenetPPUADDR();
 				return PPUDATA;
 		}
 		//This shouldn't happen
@@ -220,6 +221,17 @@ struct PPU_Registers
 				PPUDATA = data;
 				break;
 		}
+	}
+
+private:
+	uint8_t PPUDATA_Buffer;
+
+	void incremenetPPUADDR()
+	{
+		if(PPUCTRL >> 2 & 0x01)
+			PPUADDR += 0x20;
+		else
+			++PPUADDR;
 	}
 };
 

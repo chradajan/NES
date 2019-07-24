@@ -5,14 +5,14 @@
 #include <iostream>
 #include <fstream>
 #include <string>
-#include "../mappers/Mapper.hpp"
+#include "Cartridge.hpp"
 #include "Types.hpp"
 #include "Exceptions.hpp"
 
 class CPU
 {
 public:
-	CPU(Mapper* map, PPU_Registers& ppu_reg, APU_IO_Registers& apu_io_reg, std::fstream& cpuLog);
+	CPU(Cartridge* cart, PPU_Registers& ppu_reg, APU_IO_Registers& apu_io_reg, std::fstream& cpuLog, bool debugEnable = false);
 	void reset();
 	void tick();
 	~CPU();
@@ -31,7 +31,7 @@ private:
 		uint8_t SR;		//Status
 	};
 
-	Mapper* mapper;
+	Cartridge* cart;
 	CPU_Registers cpu_registers;
 	PPU_Registers& ppu_registers;
 	APU_IO_Registers& apu_io_registers;

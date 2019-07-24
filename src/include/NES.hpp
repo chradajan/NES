@@ -6,7 +6,7 @@
 #include "APU.hpp"
 #include "PPU.hpp"
 #include "Types.hpp"
-#include "../mappers/Mapper.hpp"
+#include "Cartridge.hpp"
 #include "Exceptions.hpp"
 
 class NES
@@ -20,7 +20,7 @@ private:
 	HeaderData header;
 	PPU_Registers ppu_registers;
 	APU_IO_Registers apu_io_registers;	
-	Mapper* mapper;
+	Cartridge* cart;
 	CPU* cpu;
 	APU* apu;
 	PPU* ppu;

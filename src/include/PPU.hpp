@@ -3,13 +3,13 @@
 #include <cstdint>
 #include <fstream>
 #include "Types.hpp"
-#include "../mappers/Mapper.hpp"
+#include "Cartridge.hpp"
 #include "Exceptions.hpp"
 
 class PPU
 {
 public:
-	PPU(Mapper* map, PPU_Registers& ppu_reg);
+	PPU(Cartridge* cart, PPU_Registers& ppu_reg);
 	void tick();
 	~PPU();
 private:
@@ -17,7 +17,7 @@ private:
 	uint8_t primaryOAM[0x100];
 	uint8_t secondaryOAM[0x20];
 	uint8_t paletteRAM[0x20];
-	Mapper* mapper;
+	Cartridge* cart;
 	PPU_Registers& ppu_registers;
 
 	int scanlineY;
