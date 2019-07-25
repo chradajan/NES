@@ -1,5 +1,92 @@
 #include "include/PPU.hpp"
 
+PPU_Registers::PPU_Registers(PPU& ppu) : ppu(ppu) {}
+
+bool PPU_Registers::NMI()
+{
+	return nmi;
+}
+
+uint8_t PPU_Registers::read(uint16_t address)
+{
+	address = (address < 0x2008 ? address : address - ((address / 0x0008) * 0x0008) + 0x2000);
+	uint8_t temp;
+	switch(address)
+	{
+		case 0x2000:
+			return PPUCTRL;
+		case 0x2001:
+			return PPUMASK;
+		case 0x2002:
+			temp = PPUSTATUS;
+			addressLatch = 0x00;
+			PPUSTATUS &= 0x7F;
+			return temp;
+		case 0x2003:
+			return OAMADDR;
+		case 0x2004:
+			return OAMDATA;
+		case 0x2005:
+			return PPUSTROLL;
+		case 0x2006:
+			return PPUADDR;
+		case 0x2007:
+			if(PPUADDR <= 0x3EFF)
+			{
+				temp = PPUDATA_Buffer;
+				PPUDATA_Buffer = ppu.VRAM[PPUADDR];
+			}
+			else
+				temp = ppu.VRAM[PPUADDR];
+			incremenetPPUADDR();
+			return temp;
+	}
+	//This shouldn't happen
+	return 0x00;
+}
+
+void PPU_Registers::write(uint16_t address, uint8_t data)
+{
+	address = (address < 0x2008 ? address : address - ((address / 0x0008) * 0x0008) + 0x2000);
+	switch(address)
+	{
+		case 0x2000:
+			//TODO: implement NMI when bit 7 is set
+			PPUCTRL = data;
+			break;
+		case 0x2001:
+			PPUMASK = data;
+			break;
+		case 0x2002:
+			PPUSTATUS = data;
+			break;
+		case 0x2003:
+			OAMADDR = data;
+			break;
+		case 0x2004:
+			OAMDATA = data;
+			++OAMADDR;
+			break;
+		case 0x2005:
+			PPUSTROLL = data;
+			break;
+		case 0x2006:
+			PPUADDR = data;
+			break;
+		case 0x2007:
+			PPUDATA = data;
+			break;
+	}
+}
+
+void PPU_Registers::incremenetPPUADDR()
+{
+	if(PPUCTRL >> 2 & 0x01)
+		PPUADDR += 0x20;
+	else
+		++PPUADDR;
+}
+
 PPU::PPU(Cartridge* cart)
 : cart(cart)
 {
@@ -144,9 +231,7 @@ void PPU::spriteEvalWrite()
 			++M;
 		}
 		else
-		{
 			N += 4;
-		}
 	}
 	else if(!found8Sprites && M > 0)
 	{
@@ -158,14 +243,10 @@ void PPU::spriteEvalWrite()
 			N += 4;
 		}
 		else
-		{
 			++M;
-		}
 	}
 	else if(found8Sprites)
-	{
 		spriteOverflowEval();
-	}
 }
 
 void PPU::spriteOverflowEval()

@@ -40,6 +40,9 @@ void CPU::tick()
 	++cycleCount;
 	++totalCycles;
 
+	if(ppu_registers.NMI())
+		NMI();
+
 	if(dmaTransfer)
 		executeDMATransfer();
 	else if(cycleCount == 1)
@@ -262,6 +265,11 @@ void CPU::IRQ_BRK_Vector()
 			cpu_registers.PC = addressBus;
 			readOPCode();
 	}
+}
+
+void CPU::NMI()
+{
+	//TODO: implement this when I figure out how it works
 }
 
 void CPU::implied(std::function<void()> executeInstruction)

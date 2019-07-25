@@ -6,6 +6,8 @@
 #include "Cartridge.hpp"
 #include "Exceptions.hpp"
 
+struct PPU_Registers;
+
 class PPU
 {
 public:
@@ -46,6 +48,34 @@ private:
 	void spriteEvalWrite();
 	void spriteOverflowEval();
 	void spriteFetch();
+};
+
+struct PPU_Registers
+{
+	uint8_t PPUCTRL;
+	uint8_t PPUMASK;
+	uint8_t PPUSTATUS;
+	uint8_t OAMADDR;
+	uint8_t OAMDATA;
+	uint8_t PPUSTROLL;
+	uint8_t PPUADDR;
+	uint8_t PPUDATA;
+
+	//For CPU debugging
+	int cycle;
+	int scanline;
+
+	PPU_Registers(PPU& p);
+	bool NMI();
+	uint8_t read(uint16_t address);
+	void write(uint16_t address, uint8_t data);
+
+private:
+	bool nmi;
+	uint8_t PPUDATA_Buffer;
+	uint8_t addressLatch;
+	PPU& ppu;
+	void incremenetPPUADDR();
 };
 
 #endif

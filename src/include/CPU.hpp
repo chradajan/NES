@@ -8,6 +8,7 @@
 #include "Cartridge.hpp"
 #include "Types.hpp"
 #include "Exceptions.hpp"
+#include "PPU.hpp"
 
 class CPU
 {
@@ -84,6 +85,8 @@ private:
 	void NMI_Vector();
 	void Reset_Vector();
 	void IRQ_BRK_Vector();
+
+	void NMI();
 
 	//Addressing
 	void implied(std::function<void()> executeInstruction);
