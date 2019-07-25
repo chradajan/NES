@@ -1,6 +1,10 @@
 #include "include/PPU.hpp"
 
-PPU_Registers::PPU_Registers(PPU& ppu) : ppu(ppu) {}
+PPU_Registers::PPU_Registers(PPU& ppu) : ppu(ppu)
+{
+	addressLatch = 0x0000;
+	PPUDATA_Buffer = 0x00;
+}
 
 bool PPU_Registers::NMI()
 {
@@ -19,25 +23,30 @@ uint8_t PPU_Registers::read(uint16_t address)
 			return PPUMASK;
 		case 0x2002:
 			temp = PPUSTATUS;
-			addressLatch = 0x00;
+			addressLatch = 0x0000;
 			PPUSTATUS &= 0x7F;
 			return temp;
 		case 0x2003:
 			return OAMADDR;
 		case 0x2004:
+			//TODO: implement this
+			//reads during vertical or forced blanking return the value from OAM at that address but do not increment
 			return OAMDATA;
 		case 0x2005:
 			return PPUSTROLL;
 		case 0x2006:
 			return PPUADDR;
 		case 0x2007:
-			if(PPUADDR <= 0x3EFF)
+			if(getAddressLatch() <= 0x3EFF)
 			{
 				temp = PPUDATA_Buffer;
-				PPUDATA_Buffer = ppu.VRAM[PPUADDR];
+				PPUDATA_Buffer = ppu.VRAM[getAddressLatch()];
 			}
 			else
-				temp = ppu.VRAM[PPUADDR];
+			{
+				temp = ppu.VRAM[getAddressLatch()];
+				PPUDATA_Buffer = ppu.VRAM[getAddressLatch() - 0x1000]; //Not sure if this is actually correct yet
+			}
 			incremenetPPUADDR();
 			return temp;
 	}
@@ -64,19 +73,27 @@ void PPU_Registers::write(uint16_t address, uint8_t data)
 			OAMADDR = data;
 			break;
 		case 0x2004:
-			OAMDATA = data;
+			ppu.primaryOAM[OAMADDR] = OAMDATA = data;
 			++OAMADDR;
 			break;
 		case 0x2005:
+			addressLatch = (addressLatch << 8) + data;
 			PPUSTROLL = data;
 			break;
 		case 0x2006:
+			addressLatch = (addressLatch << 8) + data;
 			PPUADDR = data;
 			break;
 		case 0x2007:
-			PPUDATA = data;
+			ppu.VRAM[getAddressLatch()] = data;
+			incremenetPPUADDR();
 			break;
 	}
+}
+
+uint16_t PPU_Registers::getAddressLatch()
+{
+	return addressLatch % 0x3FFF;
 }
 
 void PPU_Registers::incremenetPPUADDR()
@@ -87,20 +104,36 @@ void PPU_Registers::incremenetPPUADDR()
 		++PPUADDR;
 }
 
+//PPU
+
 PPU::PPU(Cartridge* cart)
 : cart(cart)
 {
 	ppu_registers = new PPU_Registers(*this);
+
+	//TODO: implement power up state stuff
+
+	scanline = -1;
+	dot = 0;
+	oddScanline = true;
 }
 
 void PPU::tick()
 {
-	++ppu_registers->cycle;
-	if(ppu_registers->cycle == 341)
-	{
-		++ppu_registers->scanline;
-		ppu_registers->cycle = 0;
-	}
+	// ++ppu_registers->cycle;
+	// if(ppu_registers->cycle == 341)
+	// {
+	// 	++ppu_registers->scanline;
+	// 	ppu_registers->cycle = 0;
+	// }
+	if(scanline == -1)
+		preRenderScanline();
+	else if(scanline <= 239)
+		visibleScanline();
+	else if(scanline == 241 && dot == 1)
+		setVBlankFlag(1);
+
+	incrementDot();
 }
 
 PPU_Registers& PPU::getRegisters()
@@ -111,6 +144,24 @@ PPU_Registers& PPU::getRegisters()
 PPU::~PPU()
 {
 	delete ppu_registers;
+}
+
+void PPU::incrementDot()
+{
+	if(dot == 339 && oddScanline && (ifSpriteRendering() || ifBackgroundRendering()))
+	{
+		dot = 0;
+		++scanline;
+	}
+	else if(dot == 340)
+	{
+		dot = 0;
+		scanline = (scanline == 260 ? -1 : scanline + 1);
+	}
+	else
+		++dot;
+
+	oddScanline = !oddScanline;
 }
 
 uint8_t PPU::read(uint16_t address) const
@@ -180,37 +231,70 @@ void PPU::write(uint16_t address, uint8_t data)
 void PPU::setSpriteOverflowFlag(bool condition)
 {
 	if(condition)
-		ppu_registers->PPUSTATUS |= 0x1 << 5;
+		ppu_registers->PPUSTATUS |= 0x01 << 5;
 	else
-		ppu_registers->PPUSTATUS &= ~(0x1 << 5);
+		ppu_registers->PPUSTATUS &= ~(0x01 << 5);
+}
+
+void PPU::setVBlankFlag(bool condition)
+{
+	if(condition)
+		ppu_registers->PPUSTATUS |= 0x80;
+	else
+		ppu_registers->PPUSTATUS &= 0x7F;
 }
 
 bool PPU::ifSpriteOverflow()
 {
-	return (ppu_registers->PPUSTATUS >> 5) & 0x1;
+	return (ppu_registers->PPUSTATUS >> 5) & 0x01;
+}
+
+bool PPU::ifBackgroundRendering()
+{
+	return (ppu_registers->PPUMASK >> 3) & 0x01;
+}
+
+bool PPU::ifSpriteRendering()
+{
+	return (ppu_registers->PPUMASK >> 4) & 0x01;
+}
+
+void PPU::preRenderScanline()
+{
+
+}
+
+void PPU::visibleScanline()
+{
+
+}
+
+void PPU::vBlankScanline()
+{
+
 }
 
 void PPU::evaluateSprites()
 {
-	if(scanlineX <= 64)
+	if(dot <= 64)
 		clearSecondaryOAMByte();
-	else if(scanlineX == 65)
+	else if(dot == 65)
 	{
 		N = read(0x2003); //OAMADDR
 		M = 0;
 		spriteEvalRead();
 	}
-	else if(scanlineX <= 256 && scanlineX % 2 == 1)
+	else if(dot <= 256 && dot % 2 == 1)
 		spriteEvalRead();
-	else if(scanlineX <= 256 && scanlineX % 2 == 0)
+	else if(dot <= 256 && dot % 2 == 0)
 		spriteEvalWrite();
-	else if(scanlineX <= 320)
+	else if(dot <= 320)
 		spriteFetch();
 }
 
 void PPU::clearSecondaryOAMByte()
 {
-	secondaryOAM[scanlineX % 32] = 0xFF;
+	secondaryOAM[dot % 32] = 0xFF;
 }
 
 void PPU::spriteEvalRead()
@@ -225,7 +309,7 @@ void PPU::spriteEvalWrite()
 	else if(!found8Sprites && M == 0)
 	{
 		secondaryOAM[secondary_oam_loc] = oam_buffer;
-		if(oam_buffer - 1 == scanlineY)
+		if(oam_buffer - 1 == scanline)
 		{
 			++secondary_oam_loc;
 			++M;
@@ -253,7 +337,7 @@ void PPU::spriteOverflowEval()
 {
 	if(ifSpriteOverflow() || N >= 64)
 		return;
-	else if(primaryOAM[N + M] - 1 == scanlineY)
+	else if(primaryOAM[N + M] - 1 == scanline)
 		setSpriteOverflowFlag(1);
 	else
 	{

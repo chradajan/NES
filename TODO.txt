@@ -1,0 +1,22 @@
+CPU:
+    Unofficial OPCodes
+    Fix power up state
+    Add reset button functionality
+    NMI Interrupt
+    Fix vector functions?
+    Make simpler debug log
+
+PPU:
+    Palette Mirroring
+    NMI
+    Find cleaner solution to forward declaration of PPU_Registers
+
+APU:
+    Implement this
+
+GUI:
+    Make one
+    QT?
+
+OpenGL:
+    Figure out how this works

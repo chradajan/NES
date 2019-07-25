@@ -25,8 +25,17 @@ private:
 	Cartridge* cart;
 	PPU_Registers* ppu_registers;
 
-	int scanlineY;
-	int scanlineX;
+	//Internal Registers
+	uint16_t v;
+	uint16_t t;
+	uint8_t x;
+	bool w;
+
+	int scanline;
+	int dot;
+	bool oddScanline;
+
+	void incrementDot();
 
 	//Read/Write
 	uint8_t read(uint16_t address) const;
@@ -34,7 +43,15 @@ private:
 
 	//Registers
 	void setSpriteOverflowFlag(bool condition);
+	void setVBlankFlag(bool condition);
 	bool ifSpriteOverflow();
+	bool ifBackgroundRendering();
+	bool ifSpriteRendering();
+
+	//Scanlines
+	void preRenderScanline();
+	void visibleScanline();
+	void vBlankScanline();
 
 	//Sprite evaluation
 	uint8_t N;
@@ -73,7 +90,8 @@ struct PPU_Registers
 private:
 	bool nmi;
 	uint8_t PPUDATA_Buffer;
-	uint8_t addressLatch;
+	uint16_t addressLatch;
+	uint16_t getAddressLatch();
 	PPU& ppu;
 	void incremenetPPUADDR();
 };
