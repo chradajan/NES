@@ -9,143 +9,21 @@
 #include <fstream>
 #include <iomanip>
 
-enum AddressingMode
-{
-	ACCUMULATOR,
-	IMMEDIATE,
-	IMPLIED,
-	ABSOLUTE,
-	ZEROPAGE,
-	ABSOLUTEINDEXED,
-	ZEROPAGEINDEXED,
-	INDIRECT,
-	PREINDEXEDINDIRECT,
-	POSTINDEXEDINDIRECT,
-	RELATIVE,
-	ABSOLUTEJMP
-};
-
-struct DebugInfo
-{
-	std::string OPCode;
-	AddressingMode mode;
-	uint8_t OPCodeHex, AC, X, Y, SP, P, memoryValue;
-	uint16_t PC, address, postIndexedAddress, firstByte, secondByte;
-	int ppuCycle, ppuScanline, cpuCycle;
-	std::string indexString;
-
-	void add(uint8_t data)
-	{
-		if(writeFirstByte)
-		{
-			firstByte = data;
-			writeFirstByte = false;
-		}
-		else
-		{
-			secondByte = data;
-			writeFirstByte = true;
-		}
-	}
-	void resetBytes()
-	{
-		writeFirstByte = true;
-		firstByte = 0xFFFF;
-		secondByte = 0xFFFF;
-	}
-	void print(std::fstream& log)
-	{
-		log << std::hex << std::uppercase << std::setfill('0') << std::setw(4) << (uint)PC << "  ";
-		log << std::setw(2) << (uint)OPCodeHex << " ";
-
-		if(firstByte <= 0xFF)
-		{
-			log << std::setw(2) << (uint)(firstByte & 0xFF) << " ";
-			if(secondByte <= 0xFF)
-				log << std::setw(2) << (uint)secondByte << "  ";
-			else
-				log << "    ";
-		}
-		else
-		{
-			log << "       ";
-		}
-
-		log << readableInstruction();
-		log << "A:" << std::setw(2) << (uint)AC << " ";
-		log << "X:" << std::setw(2) << (uint)X << " ";
-		log << "Y:" << std::setw(2) << (uint)Y << " ";
-		log << "P:" << std::setw(2) << (uint)P << " ";
-		log << "SP:" << std::setw(2) << (uint)SP << " ";
-		log << "PPU:" << std::setfill(' ') << std::setw(3) << std::dec << ppuCycle << ",";
-		log << std::setw(3) << ppuScanline << " ";
-		log << "CYC:" << cpuCycle << std::endl;
-	}
-private:
-	bool writeFirstByte = true;
-	std::string readableInstruction()
-	{
-		std::stringstream ss;
-		ss << OPCode << std::hex << std::uppercase << std::setfill('0');
-		switch(mode)
-		{
-			case ACCUMULATOR:
-				ss << " A";
-				break;
-			case IMMEDIATE:
-				ss << " #$" << std::setw(2) << (uint)firstByte;
-				break;
-			case IMPLIED:
-				break;
-			case ABSOLUTE:
-				ss << " $" << std::setw(4) << (uint)address << " = " << std::setw(2) << (uint)memoryValue;
-				break;
-			case ZEROPAGE:
-				ss << " $" << std::setw(2) << (uint)address << " = " << std::setw(2) << (uint)memoryValue;
-				break;
-			case ZEROPAGEINDEXED:
-				ss << " $" << std::setw(2) << (uint)firstByte << "," << indexString << " @ ";
-				ss << std::setw(2) << (uint)(address) << " = " << std::setw(2) << (uint)memoryValue;
-				break;
-			case ABSOLUTEINDEXED:
-				ss << " $" << std::setw(2) << (uint)secondByte << std::setw(2) << (uint)firstByte << "," << indexString << " @ ";
-				ss << std::setw(4) << (uint)(address) << " = " << std::setw(2) << (uint)memoryValue;
-				break;
-			case ABSOLUTEJMP:
-				ss << " $" << std::setw(2) << (uint)secondByte << std::setw(2) << (uint)firstByte;
-				break;
-			case PREINDEXEDINDIRECT:
-				ss << " ($" << std::setw(2) << (uint)firstByte << ",X) @ " << std::setw(2) << (uint)((firstByte + X) & 0xFF);
-				ss << " = " << std::setw(4) << (uint)address << " = " << std::setw(2) << (uint)memoryValue;
-				break;
-			case POSTINDEXEDINDIRECT:
-				ss << " ($" << std::setw(2) << (uint)firstByte << "),Y = " << std::setw(4) << (uint)postIndexedAddress << " @ ";
-				ss << std::setw(4) << (uint)address << " = " << std::setw(2) << (uint)memoryValue;
-				break;
-			case RELATIVE:
-				ss << " $" << std::setw(4) << (uint)address;
-				break;
-			case INDIRECT:
-				ss << " ($" << std::setw(2) << (uint)secondByte << std::setw(2) << (uint)firstByte << ") = " << std::setw(4) << (uint)address;
-				break;
-			default:
-				break;
-		}
-
-		int remainingSpaces = ss.str().length();
-
-		for(int i = 0; i < 32 - remainingSpaces; ++i)
-			ss << " ";
-
-		return ss.str();
-	}
-};
-
 struct HeaderData
 {
 	uint8_t PRG_ROM_SIZE;
 	uint8_t CHR_ROM_SIZE;
 	uint8_t Flags6, Flags7, Flags8, Flags9, Flags10;
+};
+
+struct CPU_Registers
+{
+	uint8_t AC;		//Accumulator
+	uint8_t X;		//X
+	uint8_t Y;		//Y
+	uint16_t PC;	//Program Counter
+	uint8_t SP;		//Stack Pointer
+	uint8_t SR;		//Status
 };
 
 struct APU_IO_Registers
@@ -310,6 +188,72 @@ struct APU_IO_Registers
 				break;
 		}
 	}
+};
+
+struct DebugInfo
+{
+	void setInfo(uint8_t opcode, const CPU_Registers& cpu_reg, int cycles)
+	{
+		OPCode = opcode;
+		PC = cpu_reg.PC - 1;
+		AC = cpu_reg.AC;
+		X = cpu_reg.X;
+		Y = cpu_reg.Y;
+		SP = cpu_reg.SP;
+		P = cpu_reg.SR;
+		cycle = cycles;
+		firstByte = secondByte = 0xFFFF;
+		writeFirstByte = true;
+	}
+	void add(uint8_t data)
+	{
+		if(writeFirstByte)
+		{
+			firstByte = data;
+			writeFirstByte = false;
+		}
+		else
+		{
+			secondByte = data;
+			writeFirstByte = true;
+		}
+	}
+	void resetBytes()
+	{
+		writeFirstByte = true;
+		firstByte = 0xFFFF;
+		secondByte = 0xFFFF;
+	}
+	void print(std::fstream& log)
+	{
+		log << std::hex << std::uppercase << std::setfill('0') << std::setw(4) << (uint)PC << "  ";
+		log << std::setw(2) << (uint)OPCode << " ";
+
+		if(firstByte <= 0xFF)
+		{
+			log << std::setw(2) << (uint)(firstByte & 0xFF) << " ";
+			if(secondByte <= 0xFF)
+				log << std::setw(2) << (uint)secondByte << "  ";
+			else
+				log << "    ";
+		}
+		else
+		{
+			log << "       ";
+		}
+
+		log << "A:" << std::setw(2) << (uint)AC << " ";
+		log << "X:" << std::setw(2) << (uint)X << " ";
+		log << "Y:" << std::setw(2) << (uint)Y << " ";
+		log << "P:" << std::setw(2) << (uint)P << " ";
+		log << "SP:" << std::setw(2) << (uint)SP << " ";
+		log << "CYC:" << cycle << std::endl;
+	}
+private:
+	bool writeFirstByte;
+	uint8_t OPCode, AC, X, Y, SP, P;
+	uint16_t PC, firstByte, secondByte;
+	int cycle;
 };
 
 #endif

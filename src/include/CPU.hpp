@@ -22,16 +22,6 @@ public:
 	void debug();
 
 private:
-	struct CPU_Registers
-	{
-		uint8_t AC;		//Accumulator
-		uint8_t X;		//X
-		uint8_t Y;		//Y
-		uint16_t PC;	//Program Counter
-		uint8_t SP;		//Stack Pointer
-		uint8_t SR;		//Status
-	};
-
 	Cartridge* cart;
 	CPU_Registers cpu_registers;
 	PPU_Registers& ppu_registers;
@@ -44,7 +34,7 @@ private:
 	int cycleCount = 0;
 	uint8_t dataBus = 0x00;
 	uint16_t addressBus = 0x0000;
-	std::function<void()> addressingMode;
+	std::function<void()> tickFunction;
 	
 	//Debug
 	DebugInfo debugInfo;
@@ -59,6 +49,9 @@ private:
 	uint8_t dmaLowByte;
 	uint8_t dmaData;
 	void executeDMATransfer();
+
+	//Interrupts
+	void NMI();
 
 	//Read/Write
 	uint8_t read(uint16_t address) const;
@@ -82,11 +75,8 @@ private:
 	void set_sign(uint8_t value);
 
 	//Vectors
-	void NMI_Vector();
 	void Reset_Vector();
 	void IRQ_BRK_Vector();
-
-	void NMI();
 
 	//Addressing
 	void implied(std::function<void()> executeInstruction);

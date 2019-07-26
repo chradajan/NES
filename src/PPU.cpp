@@ -8,7 +8,13 @@ PPU_Registers::PPU_Registers(PPU& ppu) : ppu(ppu)
 
 bool PPU_Registers::NMI()
 {
-	return nmi;
+	if(nmi)
+	{
+		nmi = false;
+		return true;
+	}
+	else
+		return nmi;
 }
 
 uint8_t PPU_Registers::read(uint16_t address)
@@ -261,7 +267,20 @@ bool PPU::ifSpriteRendering()
 
 void PPU::preRenderScanline()
 {
+	if(dot == 0)
+		return;
+	else if(dot == 1)
+		setVBlankFlag(0);
 
+
+	if(dot <= 256)
+		;//Dummy reads
+	else if(dot <= 320)
+		return;
+	else
+	{
+		//Fetch data for next scanline
+	}
 }
 
 void PPU::visibleScanline()
