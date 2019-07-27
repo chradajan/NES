@@ -269,12 +269,31 @@ void PPU::preRenderScanline()
 
 
 	if(dot <= 256)
-		;//Dummy reads
+		return; //TODO: implement dummy reads
 	else if(dot <= 320)
 		return;
-	else
+	else if(dot <= 336)
 	{
-		//Fetch data for next scanline
+		switch(vramFetchCycle)
+		{
+			case 0:
+				
+				break;
+			case 1:
+				break;
+			case 2:
+				break;
+			case 3:
+				break;
+			case 4:
+				break;
+			case 5:
+				break;
+			case 6:
+				break;
+			case 7:
+				break;
+		}
 	}
 }
 
@@ -293,14 +312,14 @@ void PPU::getPixel()
 	uint16_t backgroundPaletteIndex = 0x3F00;
 	uint8_t color;
 	//TODO: Select which bit to take from shift registers based on ppuscroll 
-	backgroundPaletteIndex |= ((lowPTShiftReg & 0x80) >> 7);
-	lowPTShiftReg <<= 1;
-	backgroundPaletteIndex |= ((highPTShiftReg & 0x80) >> 6);
-	highPTShiftReg <<= 1;
-	backgroundPaletteIndex |= ((lowATShiftReg & 0x80) >> 5);
-	lowATShiftReg <<= 1;
-	backgroundPaletteIndex |= ((lowATShiftReg & 0x80) >> 4);
-	highATShiftReg <<= 1;
+	backgroundPaletteIndex |= (lowPTShiftReg & 0x01);
+	lowPTShiftReg >>= 1;
+	backgroundPaletteIndex |= (highPTShiftReg & 0x01);
+	highPTShiftReg >>= 1;
+	backgroundPaletteIndex |= (lowATShiftReg & 0x01);
+	lowATShiftReg >>= 1;
+	backgroundPaletteIndex |= (lowATShiftReg & 0x01);
+	highATShiftReg >>= 1;
 
 	color = read(backgroundPaletteIndex);
 }

@@ -54,11 +54,13 @@ private:
 	bool ifSpriteRendering();
 
 	//Scanlines
+	int vramFetchCycle;
 	void preRenderScanline();
 	void visibleScanline();
 	void vBlankScanline();
 
 	//Rendering
+	char* frameBuffer;
 	void getPixel();
 
 	//Sprite evaluation
