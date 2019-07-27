@@ -4,6 +4,7 @@ PPU_Registers::PPU_Registers(PPU& ppu) : ppu(ppu)
 {
 	addressLatch = 0x0000;
 	PPUDATA_Buffer = 0x00;
+	nmi = false;
 }
 
 bool PPU_Registers::NMI()
@@ -121,17 +122,11 @@ PPU::PPU(Cartridge* cart)
 
 	scanline = -1;
 	dot = 0;
-	oddScanline = true;
+	oddFrame = false;
 }
 
 void PPU::tick()
 {
-	// ++ppu_registers->cycle;
-	// if(ppu_registers->cycle == 341)
-	// {
-	// 	++ppu_registers->scanline;
-	// 	ppu_registers->cycle = 0;
-	// }
 	if(scanline == -1)
 		preRenderScanline();
 	else if(scanline <= 239)
@@ -154,20 +149,20 @@ PPU::~PPU()
 
 void PPU::incrementDot()
 {
-	if(dot == 339 && oddScanline && (ifSpriteRendering() || ifBackgroundRendering()))
+	if(dot < 339)
+		++dot;
+	else if(oddFrame && dot == 339 && scanline == 260)
 	{
-		dot = 0;
-		++scanline;
+		oddFrame = false;
+		dot = scanline = 0;
 	}
 	else if(dot == 340)
 	{
-		dot = 0;
-		scanline = (scanline == 260 ? -1 : scanline + 1);
+		dot = scanline = 0;
+		oddFrame = true;
 	}
 	else
 		++dot;
-
-	oddScanline = !oddScanline;
 }
 
 uint8_t PPU::read(uint16_t address) const
@@ -285,12 +280,29 @@ void PPU::preRenderScanline()
 
 void PPU::visibleScanline()
 {
-
+	getPixel();
 }
 
 void PPU::vBlankScanline()
 {
 
+}
+
+void PPU::getPixel()
+{
+	uint16_t backgroundPaletteIndex = 0x3F00;
+	uint8_t color;
+	//TODO: Select which bit to take from shift registers based on ppuscroll 
+	backgroundPaletteIndex |= ((lowPTShiftReg & 0x80) >> 7);
+	lowPTShiftReg <<= 1;
+	backgroundPaletteIndex |= ((highPTShiftReg & 0x80) >> 6);
+	highPTShiftReg <<= 1;
+	backgroundPaletteIndex |= ((lowATShiftReg & 0x80) >> 5);
+	lowATShiftReg <<= 1;
+	backgroundPaletteIndex |= ((lowATShiftReg & 0x80) >> 4);
+	highATShiftReg <<= 1;
+
+	color = read(backgroundPaletteIndex);
 }
 
 void PPU::evaluateSprites()

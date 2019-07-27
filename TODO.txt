@@ -2,9 +2,7 @@ CPU:
     Unofficial OPCodes
     Fix power up state
     Add reset button functionality
-    NMI Interrupt
     Fix vector functions?
-    Make simpler debug log
 
 PPU:
     Palette Mirroring
@@ -18,5 +16,6 @@ GUI:
     Make one
     QT?
 
-OpenGL:
+SDL:
     Figure out how this works
+    Framebuffer

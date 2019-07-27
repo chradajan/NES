@@ -30,10 +30,15 @@ private:
 	uint16_t t;
 	uint8_t x;
 	bool w;
+	uint16_t lowPTShiftReg, highPTShiftReg;
+	uint8_t lowATShiftReg, highATShiftReg;
+	uint8_t spritePTData[8];
+	uint8_t spriteAttribtuteData[8];
+	uint8_t spriteXCounters[8];
 
 	int scanline;
 	int dot;
-	bool oddScanline;
+	bool oddFrame;
 
 	void incrementDot();
 
@@ -52,6 +57,9 @@ private:
 	void preRenderScanline();
 	void visibleScanline();
 	void vBlankScanline();
+
+	//Rendering
+	void getPixel();
 
 	//Sprite evaluation
 	uint8_t N;
@@ -77,10 +85,6 @@ struct PPU_Registers
 	uint8_t PPUSTROLL;
 	uint8_t PPUADDR;
 	uint8_t PPUDATA;
-
-	//For CPU debugging
-	int cycle;
-	int scanline;
 
 	PPU_Registers(PPU& p);
 	bool NMI();

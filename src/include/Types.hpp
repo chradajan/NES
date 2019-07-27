@@ -9,6 +9,8 @@
 #include <fstream>
 #include <iomanip>
 
+#define uint unsigned int //Mingw doesn't recognize uintg
+
 struct HeaderData
 {
 	uint8_t PRG_ROM_SIZE;
@@ -226,6 +228,9 @@ struct DebugInfo
 	}
 	void print(std::fstream& log)
 	{
+		// if(cycle == 0)
+		// 	return;
+
 		log << std::hex << std::uppercase << std::setfill('0') << std::setw(4) << (uint)PC << "  ";
 		log << std::setw(2) << (uint)OPCode << " ";
 
@@ -247,7 +252,7 @@ struct DebugInfo
 		log << "Y:" << std::setw(2) << (uint)Y << " ";
 		log << "P:" << std::setw(2) << (uint)P << " ";
 		log << "SP:" << std::setw(2) << (uint)SP << " ";
-		log << "CYC:" << cycle << std::endl;
+		log << "CYC:" << std::dec << cycle << std::endl;
 	}
 private:
 	bool writeFirstByte;

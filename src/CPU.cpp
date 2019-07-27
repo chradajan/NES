@@ -21,11 +21,13 @@ CPU::CPU(Cartridge* cart, PPU_Registers& ppu_reg, APU_IO_Registers& apu_io_reg, 
 
 	cycleCount = 0;
 	totalCycles = 0;
-	oddCycle = true;
+	oddCycle = false;
 
-	debugEnabled = false;
+	debugEnabled = true;
 
 	Reset_Vector();
+
+	readOPCode();
 }
 
 void CPU::reset()
@@ -85,11 +87,13 @@ void CPU::NMI()
 			push(cpu_registers.PC & 0xFF);
 			break;
 		case 5:
+		{
 			uint8_t temp = cpu_registers.SR;
 			temp |= 0x20;
 			temp &= 0xEF;
 			push(temp);
 			break;
+		}
 		case 6:
 			addressBus = read(0xFFFA);
 			break;
@@ -1755,6 +1759,7 @@ void CPU::decodeOP()
 
 void CPU::debug()
 {
-	debugInfo.print(log);
+	if(totalCycles > 0)
+		debugInfo.print(log);
 	debugInfo.setInfo(currentOP, cpu_registers, totalCycles);
 }
