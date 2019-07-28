@@ -1,85 +1,57 @@
 #ifndef PPU_H
 #define PPU_H
 #include <cstdint>
-#include <fstream>
-#include "Types.hpp"
 #include "Cartridge.hpp"
-#include "Exceptions.hpp"
 
 struct PPU_Registers;
 
 class PPU
 {
 public:
-	PPU(Cartridge* cart);
-	void tick();
-	PPU_Registers& getRegisters();
-	~PPU();
+    PPU(Cartridge* cartridge);
+    ~PPU();
 private:
-	friend struct PPU_Registers;
+    friend struct PPU_Registers;
+    struct InternalRegisters
+    {
+        uint16_t v, t; //15 bits
+        uint8_t x; //3 bits
+        bool w; //1 bit
 
-	uint8_t VRAM[0x800];
+        void clear()
+        {
+            x = v = t = 0x0000;
+            w = false;
+        }
+    };
+    uint8_t VRAM[0x800];
 	uint8_t primaryOAM[0x100];
 	uint8_t secondaryOAM[0x20];
 	uint8_t paletteRAM[0x20];
-	Cartridge* cart;
-	PPU_Registers* ppu_registers;
+    PPU_Registers* memMappedReg;
+    InternalRegisters reg;
+    Cartridge* cart;
 
-	//Internal Registers
-	uint16_t v;
-	uint16_t t;
-	uint8_t x;
-	bool w;
-	uint16_t lowPTShiftReg, highPTShiftReg;
-	uint8_t lowATShiftReg, highATShiftReg;
-	uint8_t spritePTData[8];
-	uint8_t spriteAttribtuteData[8];
-	uint8_t spriteXCounters[8];
+    //Read/write
+    uint8_t read(uint16_t address);
+    void write(uint16_t address, uint8_t data);
 
-	int scanline;
-	int dot;
-	bool oddFrame;
+    //Address conversions
+    uint16_t nametableAddress(uint16_t address);
+    uint16_t paletteAddress(uint16_t address);
+    uint16_t tileAddress();
+    uint16_t attributeAddress();
 
-	void incrementDot();
-
-	//Read/Write
-	uint8_t read(uint16_t address) const;
-	void write(uint16_t address, uint8_t data);
-
-	//Registers
-	void setSpriteOverflowFlag(bool condition);
-	void setVBlankFlag(bool condition);
-	bool ifSpriteOverflow();
-	bool ifBackgroundRendering();
-	bool ifSpriteRendering();
-
-	//Scanlines
-	int vramFetchCycle;
-	void preRenderScanline();
-	void visibleScanline();
-	void vBlankScanline();
-
-	//Rendering
-	char* frameBuffer;
-	void getPixel();
-
-	//Sprite evaluation
-	uint8_t N;
-	uint8_t M;
-	uint8_t secondary_oam_loc;
-	uint8_t oam_buffer;
-	bool found8Sprites;
-	void evaluateSprites();
-	void clearSecondaryOAMByte();
-	void spriteEvalRead();
-	void spriteEvalWrite();
-	void spriteOverflowEval();
-	void spriteFetch();
+    //Scanline operations
+    void incHoriV();
+    void incVertV();
+    void setHoriV();
+    void setVertV();
 };
 
 struct PPU_Registers
 {
-	uint8_t PPUCTRL;
+    uint8_t PPUCTRL;
 	uint8_t PPUMASK;
 	uint8_t PPUSTATUS;
 	uint8_t OAMADDR;
@@ -88,18 +60,15 @@ struct PPU_Registers
 	uint8_t PPUADDR;
 	uint8_t PPUDATA;
 
-	PPU_Registers(PPU& p);
-	bool NMI();
-	uint8_t read(uint16_t address);
-	void write(uint16_t address, uint8_t data);
+    uint8_t read(uint16_t address);
+    void write(uint16_t address, uint8_t data);
+    bool renderingEnabled();
 
 private:
-	bool nmi;
-	uint8_t PPUDATA_Buffer;
-	uint16_t addressLatch;
-	uint16_t getAddressLatch();
-	PPU& ppu;
-	void incremenetPPUADDR();
+    PPU& ppu;
+    uint16_t addressLatch;
+    uint8_t dataBuffer;
+    bool nmi;
 };
 
 #endif
