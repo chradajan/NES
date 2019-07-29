@@ -1,5 +1,5 @@
-#ifndef PPU_H
-#define PPU_H
+#ifndef PPU_OLD_H
+#define PPU_OLD_H
 #include <cstdint>
 #include <fstream>
 #include "Types.hpp"

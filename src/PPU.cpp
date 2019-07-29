@@ -94,7 +94,7 @@ void PPU_Registers::write(uint16_t address, uint8_t data)
                 addressLatch = (addressLatch << 8) | data; //Not sure if address latch is really needed
             }
             break;
-        case 0x2007:
+        case 0x2007: //PPUDATA
             ppu.VRAM[ppu.reg.v] = data;
             if((PPUCTRL >> 2) & 0x01)
                 ppu.reg.v += 0x20;
@@ -114,6 +114,22 @@ bool PPU_Registers::renderingEnabled()
 PPU::PPU(Cartridge* cartridge) : cart(cartridge)
 {
     reg.clear();
+}
+
+void PPU::tick()
+{
+    if(scanline == -1)
+        preRenderScanline();
+    else if(scanline < 240)
+        visibleScanline();
+    else if(scanline == 241 && dot == 1)
+        memMappedReg->PPUSTATUS |= 0x80; //Set VBlank flag
+    //Else this is an idle cycle   
+}
+
+PPU_Registers& PPU::getRegisters()
+{
+    return *memMappedReg;
 }
 
 PPU::~PPU() {}
@@ -171,7 +187,7 @@ uint16_t PPU::paletteAddress(uint16_t address)
 
 uint16_t PPU::tileAddress()
 {
-    uint8_t baseNameTableAddress = memMappedReg->PPUCTRL & 0x03;
+    uint8_t baseNameTableAddress = (reg.v >> 10) & 0x03;
     switch(baseNameTableAddress)
     {
         case 0x00:
@@ -187,7 +203,7 @@ uint16_t PPU::tileAddress()
 
 uint16_t PPU::attributeAddress()
 {
-    uint8_t baseNameTableAddress = memMappedReg->PPUCTRL & 0x03;
+    uint8_t baseNameTableAddress = (reg.v >> 10) & 0x03;
     switch(baseNameTableAddress)
     {
         case 0x00:
@@ -198,6 +214,85 @@ uint16_t PPU::attributeAddress()
               return 0x2BC0 | (reg.v & 0x0C00) | ((reg.v >> 4) & 0x38) | ((reg.v >> 2) & 0x07);
         case 0x11:
             return 0x2FC0 | (reg.v & 0x0C00) | ((reg.v >> 4) & 0x38) | ((reg.v >> 2) & 0x07);
+    }
+}
+
+void PPU::setAttributeBits()
+{
+    NT_Addr -= 0x2000;
+    NT_Addr %= 0x400;
+    bool right = ((NT_Addr % 32) % 4) / 2; //fakse if left half, true if right half
+    bool bottom = ((NT_Addr / 32) % 4) / 2; //false if top half, true if bottom half
+    
+    if(!right && !bottom) //Top left
+        AT_Bits = AT_Byte & 0x03;
+    else if(right && !bottom) //Top right
+        AT_Bits = (AT_Byte & 0x0C) >> 2;
+    else if(!right && bottom) //Bottom left
+        AT_Bits = (AT_Byte & 0x30) >> 4;
+    else if(right && bottom) //Bottom right
+        AT_Bits = (AT_Byte & 0xC0) >> 6;
+}
+
+void PPU::preRenderScanline()
+{
+    if(dot == 0)
+        return;
+    else if(dot == 1)
+        memMappedReg->PPUSTATUS &= 0x3F; //Clear Vblank flag and sprite 0 hit
+    else if(dot < 257)
+    {
+        backGroundFetchCycleEval();
+        spriteEval();
+        getPixel();
+    }
+}
+
+void PPU::visibleScanline()
+{
+
+}
+
+void PPU::backGroundFetchCycleEval()
+{
+    ++fetchCycle;
+    switch(fetchCycle)
+    {
+        case 1:
+            break;
+        case 2:
+            NT_Addr = tileAddress();
+            NT_Byte = read(NT_Addr);
+            break;
+        case 3:
+            break;
+        case 4:
+            AT_Byte = read(attributeAddress());
+            break;
+        case 5:
+            break;
+        case 6:
+        {
+            uint16_t PT_Address = (memMappedReg->PPUCTRL & 0x10) << 8;
+            PT_Address += (NT_Byte * 0x10) + PT_offset;
+            BG_LowByte = read(PT_Address);
+        }
+            break;
+        case 7:
+            break;
+        case 8:
+        {
+            uint16_t PT_Address = (memMappedReg->PPUCTRL & 0x10) << 8;
+            PT_Address += (NT_Byte * 0x10) + PT_offset + 8;
+            BG_HighByte = read(PT_Address);
+
+            PT_Shift_Low |= BG_LowByte;      //Reload lower 8 bits of shift register
+            PT_Shift_High |= BG_HighByte;    //Reload lower 8 bits of shift register
+            setAttributeBits();
+
+            incHoriV();
+            fetchCycle = 0;        
+        }
     }
 }
 
