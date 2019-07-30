@@ -28,6 +28,8 @@ private:
         }
     };
 
+    void printPatternTables();
+
     //Cartidge mapper
     Cartridge* cart;
 
@@ -101,7 +103,7 @@ struct PPU_Registers
 
     PPU_Registers(PPU& ppu);
     uint8_t read(uint16_t address);
-    void write(uint16_t address, uint8_t data, bool allowWrites);
+    void write(uint16_t address, uint8_t data);
     bool renderingEnabled();
     bool NMI() {return nmi;}
     void checkNMI();

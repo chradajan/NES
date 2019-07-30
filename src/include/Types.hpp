@@ -13,8 +13,19 @@
 
 struct RGB
 {
+	RGB() 
+	{
+		R = G = B = 0x00;
+	}
+	friend std::ostream& operator<<(std::ostream& os, const RGB& rgb);
     uint8_t R, G, B;
 };
+
+inline std::ostream& operator<<(std::ostream& os, const RGB& rgb)
+{
+	os << std::hex << std::setfill('0') << "R: " << std::setw(2) << (uint)rgb.R << "  G: " << std::setw(2) << (uint)rgb.G << "  B: " << std::setw(2) << (uint)rgb.B;
+	return os;  
+}
 
 struct HeaderData
 {

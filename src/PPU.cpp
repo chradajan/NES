@@ -53,20 +53,16 @@ uint8_t PPU_Registers::read(uint16_t address)
     return 0x00; //Shouldn't happen
 }
 
-void PPU_Registers::write(uint16_t address, uint8_t data, bool allowWrites)
+void PPU_Registers::write(uint16_t address, uint8_t data)
 {
     switch(address)
     {
         case 0x2000: //PPUCTRL
-            //if(!allowWrites)
-                //return;
             ppu.reg.t = (ppu.reg.t & 0x73FF) | ((data & 0x03) << 10);
             PPUCTRL = data;
             checkNMI();
             break;
         case 0x2001: //PPUMASK
-            //if(!allowWrites)
-                //return;
             PPUMASK = data;
             break;
         case 0x2002: // PPUSTATUS
@@ -80,8 +76,6 @@ void PPU_Registers::write(uint16_t address, uint8_t data, bool allowWrites)
             ++OAMADDR;
             break;
         case 0x2005: //PPUSCROLL
-            //if(!allowWrites)
-                //return;
             if(!ppu.reg.w) //First write
             {
                 ppu.reg.t = (ppu.reg.t & 0x7FE0) | (data >> 3);
@@ -97,8 +91,6 @@ void PPU_Registers::write(uint16_t address, uint8_t data, bool allowWrites)
             }
             break;
         case 0x2006: //PPUADDR
-            //if(!allowWrites)
-                //return;
             if(!ppu.reg.w) //First write
             {
                 ppu.reg.t = (ppu.reg.t & 0x00FF) | ((data & 0x3F) << 8);
@@ -114,7 +106,7 @@ void PPU_Registers::write(uint16_t address, uint8_t data, bool allowWrites)
             }
             break;
         case 0x2007: //PPUDATA
-            ppu.VRAM[ppu.reg.v] = data;
+            ppu.write(ppu.reg.v, data);
             if((PPUCTRL >> 2) & 0x01)
                 ppu.reg.v += 0x20;
             else
@@ -147,6 +139,31 @@ PPU::PPU(Cartridge* cartridge, RGB* colors, char* frameBuffer, bool& renderFrame
     PT_offset = 0;
     oddFrame = false;
     frameBufferPointer = 0;
+    for(int i = 0; i < 0x800; ++i)
+        VRAM[i] = 0x00;
+}
+
+PPU::~PPU()
+{
+    delete memMappedReg;
+}
+
+void PPU::printPatternTables()
+{
+    for(int i = 0; i < 256; ++i)
+    {
+        for(int j = 0; j < 8; ++j)
+        {
+            uint8_t low = read(i*16 + j);
+            uint8_t high = read(i*16 + j + 8);
+            for(int k = 0; k < 8; ++k)
+            {
+                std::cout << ((low & (0x80 >> k)) >> (7-k)) + ((high & (0x80 >> k)) >> (7-k)) << " ";
+            }
+            std::cout << std::endl;
+        }
+        std::cout << std::endl << std::endl;
+    }
 }
 
 void PPU::tick()
@@ -169,8 +186,6 @@ PPU_Registers& PPU::getRegisters()
     return *memMappedReg;
 }
 
-PPU::~PPU() {}
-
 uint8_t PPU::read(uint16_t address)
 {
     address %= 0x3FFF;
@@ -188,9 +203,14 @@ void PPU::write(uint16_t address, uint8_t data)
     if(address < 0x2000) //Pattern table
         cart->writeCHR(address, data);
     else if(address < 0x3F00) //Nametables
+    {
         VRAM[nametableAddress(address)] = data;
+    }
     else
+    {
+        //std::cout << std::hex << (uint)data << std::endl;
         paletteRAM[paletteAddress(address)] = data;
+    }
 }
 
 uint16_t PPU::nametableAddress(uint16_t address)
@@ -224,36 +244,12 @@ uint16_t PPU::paletteAddress(uint16_t address)
 
 uint16_t PPU::tileAddress()
 {
-    uint8_t baseNameTableAddress = (reg.v >> 10) & 0x03;
-    switch(baseNameTableAddress)
-    {
-        case 0x00:
-            return 0x2000 | (reg.v & 0x0FFF);
-        case 0x01:
-            return 0x2400 | (reg.v & 0x0FFF);
-        case 0x10:
-              return 0x2800 | (reg.v & 0x0FFF);
-        case 0x11:
-            return 0x2C00 | (reg.v & 0x0FFF);
-    }
-    return 0x0000; //Shouldn't happen
+    return 0x2000 | (reg.v & 0xFFF);
 }
 
 uint16_t PPU::attributeAddress()
 {
-    uint8_t baseNameTableAddress = (reg.v >> 10) & 0x03;
-    switch(baseNameTableAddress)
-    {
-        case 0x00:
-            return 0x23C0 | (reg.v & 0x0C00) | ((reg.v >> 4) & 0x38) | ((reg.v >> 2) & 0x07);
-        case 0x01:
-            return 0x27C0 | (reg.v & 0x0C00) | ((reg.v >> 4) & 0x38) | ((reg.v >> 2) & 0x07);
-        case 0x10:
-              return 0x2BC0 | (reg.v & 0x0C00) | ((reg.v >> 4) & 0x38) | ((reg.v >> 2) & 0x07);
-        case 0x11:
-            return 0x2FC0 | (reg.v & 0x0C00) | ((reg.v >> 4) & 0x38) | ((reg.v >> 2) & 0x07);
-    }
-    return 0x0000; //Shouldn't happen
+    return 0x23C0 | (reg.v & 0x0C00) | ((reg.v >> 4) & 0x38) | ((reg.v >> 2) & 0x07);
 }
 
 void PPU::setAttributeBits()
@@ -292,7 +288,7 @@ void PPU::preRenderScanline()
         setVertV();
     else if(dot < 321)
         return;
-    else if(dot < 336)
+    else if(dot < 337)
         backgroundFetchCycleEval();
     else
         read(tileAddress());
@@ -309,16 +305,21 @@ void PPU::visibleScanline()
         else
             return;        
     }
-    else if(dot == 1)
-    {
-        backgroundFetchCycleEval();
-        //spriteEval();
-    }
+    // else if(dot == 1)
+    // {
+    //     backgroundFetchCycleEval();
+    //     //spriteEval();
+    // }
+    // else if(dot < 257)
+    // {
+    //     getPixel();
+    //     backgroundFetchCycleEval();
+    //     //spriteEval();
+    // }
     else if(dot < 257)
     {
-        backgroundFetchCycleEval();
-        //spriteEval();
         getPixel();
+        backgroundFetchCycleEval();
     }
     else if(dot == 257)
     {
@@ -339,35 +340,32 @@ void PPU::backgroundFetchCycleEval()
     if(!memMappedReg->renderingEnabled())
         return;
 
+    PT_Shift_High <<= 1;
+    PT_Shift_Low <<= 1;
+
     ++fetchCycle;
     switch(fetchCycle)
     {
-        case 1:
-            break;
         case 2:
             NT_Addr = tileAddress();
             NT_Byte = read(NT_Addr);
             break;
-        case 3:
-            break;
         case 4:
             AT_Byte = read(attributeAddress());
             break;
-        case 5:
-            break;
         case 6:
         {
-            uint16_t PT_Address = (memMappedReg->PPUCTRL & 0x10) << 8;
-            PT_Address += (NT_Byte * 0x10) + PT_offset;
+            uint16_t PT_Address = ((memMappedReg->PPUCTRL & 0x10) << 8) | (NT_Byte << 4) | (reg.v >> 12);
+            // uint16_t PT_Address = (memMappedReg->PPUCTRL & 0x10) << 8;
+            // PT_Address += (NT_Byte * 0x10) + PT_offset;
             BG_LowByte = read(PT_Address);
         }
             break;
-        case 7:
-            break;
         case 8:
         {
-            uint16_t PT_Address = (memMappedReg->PPUCTRL & 0x10) << 8;
-            PT_Address += (NT_Byte * 0x10) + PT_offset + 8;
+            uint16_t PT_Address = ((memMappedReg->PPUCTRL & 0x10) << 8) | (NT_Byte << 4) | 0x08 | (reg.v >> 12);
+            // uint16_t PT_Address = (memMappedReg->PPUCTRL & 0x10) << 8;
+            // PT_Address += (NT_Byte * 0x10) + PT_offset + 8;
             BG_HighByte = read(PT_Address);
 
             PT_Shift_Low |= BG_LowByte;      //Reload lower 8 bits of shift register
@@ -379,13 +377,16 @@ void PPU::backgroundFetchCycleEval()
             else
                 incHoriV();
             
-            if(PT_offset == 7)
-                PT_offset = 0;
-            else
-                ++PT_offset;
+            // if(PT_offset == 7)
+            //     PT_offset = 0;
+            // else
+            //     ++PT_offset;
             
-            fetchCycle = 0;        
+            fetchCycle = 0;
+            break;      
         }
+        default:
+            break;
     }
 }
 
@@ -531,22 +532,22 @@ void PPU::spriteFetch()
 
 void PPU::getPixel()
 {
-    uint8_t BG_Pixel = 0x00, selectMask;
-    selectMask = 0x8000 >> reg.x;
-    BG_Pixel = (AT_Bits << 2) | ((PT_Shift_High & selectMask) >> (14 - selectMask)) | ((PT_Shift_Low & selectMask) >> (15 - selectMask));
-    PT_Shift_High <<= 1;
-    PT_Shift_Low <<= 1;
-    uint16_t addr = (0x3F0 << 1) | BG_Pixel;
-    decodePixel(read(addr));
+    uint8_t BG_Pixel = 0x00;//, selectMask;
+    //selectMask = 0x8000 >> reg.x;
+    //BG_Pixel = (AT_Bits << 2) + ((PT_Shift_High & selectMask) >> (14 - selectMask)) + ((PT_Shift_Low & selectMask) >> (15 - selectMask));
+    BG_Pixel = (AT_Bits << 2) + ((PT_Shift_High & 0x8000) >> 14) + ((PT_Shift_Low & 0x7000) >> 15);
+    uint16_t addr = (0x3F0 << 4) + BG_Pixel;
+    uint8_t colorByte = read(addr);
+    decodePixel(colorByte);
 }
 
-void PPU::decodePixel(uint8_t paletteData)
+void PPU::decodePixel(uint8_t colorByte)
 {
-    RGB pixelColor = colors[paletteData];
-    frameBuffer[frameBufferPointer] = pixelColor.R;
-    frameBuffer[frameBufferPointer + 1] = pixelColor.G;
-    frameBuffer[frameBufferPointer + 2] = pixelColor.B;
-    frameBufferPointer += 3;
+    RGB color = colors[colorByte];
+    
+    frameBuffer[frameBufferPointer++] = (char)color.R;
+    frameBuffer[frameBufferPointer++] = (char)color.G;
+    frameBuffer[frameBufferPointer++] = (char)color.B;
     if(frameBufferPointer >= 184320)
     {
         renderFrame = true;

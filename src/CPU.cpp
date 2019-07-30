@@ -1,7 +1,5 @@
 #include "include/CPU.hpp"
 
-//TODO: Implement IRQ and NMI interrupts. Implement OMA transfer
-
 CPU::CPU(Cartridge* cart, PPU_Registers& ppu_reg, APU_IO_Registers& apu_io_reg, std::fstream& cpuLog) 
 : cart(cart), ppu_registers(ppu_reg), apu_io_registers(apu_io_reg), log(cpuLog)
 {
@@ -22,11 +20,10 @@ CPU::CPU(Cartridge* cart, PPU_Registers& ppu_reg, APU_IO_Registers& apu_io_reg, 
 	cycleCount = 0;
 	totalCycles = 0;
 	oddCycle = false;
-	allowWrites = false;
 
 	totalCycles = 0;
 
-	debugEnabled = true;
+	debugEnabled = false;
 
 	Reset_Vector();
 
@@ -43,8 +40,6 @@ void CPU::tick()
 	oddCycle = !oddCycle;
 	++cycleCount;
 	++totalCycles;
-	if(totalCycles >= 29658)
-		allowWrites = true;
 
 	if(dmaTransfer)
 		executeDMATransfer();
@@ -129,7 +124,7 @@ void CPU::write(uint16_t address, uint8_t data)
 	if(address < 0x2000) //Internal RAM
 		RAM[address % 0x0800] = data;
 	else if(address < 0x4000) //PPU registers
-		ppu_registers.write(address, data, allowWrites);
+		ppu_registers.write(address, data);
 	else if(address == 0x4014) //Trigger DMA Transfer
 	{
 		dmaTransfer = true;
@@ -458,13 +453,15 @@ void CPU::indirectY(std::function<void()> executeInstruction)
 
 uint16_t CPU::relativeAddress(uint8_t offset)
 {
-	bool isNegative = (offset & 0x80) >> 7;
-	if(isNegative)
-	{
-		offset &= 0x7F;
-		return cpu_registers.PC - offset;
-	}
-	return cpu_registers.PC + offset;
+	// bool isNegative = (offset & 0x80) >> 7;
+	// if(isNegative)
+	// {
+	// 	offset &= 0x7F;
+	// 	return cpu_registers.PC - offset;
+	// }
+	// return cpu_registers.PC + offset;
+	int8_t signedOffset = offset;
+	return cpu_registers.PC + signedOffset;
 }
 
 void CPU::relative(bool condition)
