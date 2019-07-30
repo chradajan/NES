@@ -5,9 +5,7 @@ CPU:
     Fix vector functions?
 
 PPU:
-    Palette Mirroring
     NMI
-    Find cleaner solution to forward declaration of PPU_Registers
 
 APU:
     Implement this

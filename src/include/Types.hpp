@@ -11,6 +11,11 @@
 
 #define uint unsigned int //Mingw doesn't recognize uintg
 
+struct RGB
+{
+    uint8_t R, G, B;
+};
+
 struct HeaderData
 {
 	uint8_t PRG_ROM_SIZE;
@@ -30,30 +35,30 @@ struct CPU_Registers
 
 struct APU_IO_Registers
 {
-	uint8_t SQ1_VOL;
-	uint8_t SQ1_SWEEP;
-	uint8_t SQ1_LO;
-	uint8_t SQ1_HI;
-	uint8_t SQ2_VOL;
-	uint8_t SQ2_SWEEP;
-	uint8_t SQ2_LO;
-	uint8_t SQ2_HI;
-	uint8_t TRI_LINEAR;
-	uint8_t UNUSED1;
-	uint8_t TRI_LO;
-	uint8_t TRI_HI;
-	uint8_t NOISE_VOL;
-	uint8_t UNUSED2;
-	uint8_t NOISE_LO;
-	uint8_t NOISE_HI;
-	uint8_t DMC_FREQ;
-	uint8_t DMC_RAW;
-	uint8_t DMC_START;
-	uint8_t DMC_LEN;
-	uint8_t OAMDMA;
-	uint8_t SND_CHN;
-	uint8_t JOY1;
-	uint8_t JOY2;
+	uint8_t SQ1_VOL = 0x00;
+	uint8_t SQ1_SWEEP = 0x00;
+	uint8_t SQ1_LO = 0x00;
+	uint8_t SQ1_HI = 0x00;
+	uint8_t SQ2_VOL = 0x00;
+	uint8_t SQ2_SWEEP = 0x00;
+	uint8_t SQ2_LO = 0x00;
+	uint8_t SQ2_HI = 0x00;
+	uint8_t TRI_LINEAR = 0x00;
+	uint8_t UNUSED1 = 0x00;
+	uint8_t TRI_LO = 0x00;
+	uint8_t TRI_HI = 0x00;
+	uint8_t NOISE_VOL = 0x00;
+	uint8_t UNUSED2 = 0x00;
+	uint8_t NOISE_LO = 0x00;
+	uint8_t NOISE_HI = 0x00;
+	uint8_t DMC_FREQ = 0x00;
+	uint8_t DMC_RAW = 0x00;
+	uint8_t DMC_START = 0x00;
+	uint8_t DMC_LEN = 0x00;
+	uint8_t OAMDMA = 0x00;
+	uint8_t SND_CHN = 0x00;
+	uint8_t JOY1 = 0x00;
+	uint8_t JOY2 = 0x00;
 
 	uint8_t read(uint16_t address) const
 	{
@@ -228,9 +233,6 @@ struct DebugInfo
 	}
 	void print(std::fstream& log)
 	{
-		// if(cycle == 0)
-		// 	return;
-
 		log << std::hex << std::uppercase << std::setfill('0') << std::setw(4) << (uint)PC << "  ";
 		log << std::setw(2) << (uint)OPCode << " ";
 

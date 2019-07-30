@@ -12,7 +12,7 @@
 class NES
 {
 public:
-	NES(const char* file, std::fstream& cpuLog);
+	NES(const char* file, std::fstream& cpuLog, char* frameBuffer, bool& renderFrame);
 	void tick();
 	~NES();
 
@@ -24,10 +24,14 @@ private:
 	CPU* cpu;
 	APU* apu;
 	PPU* ppu;
+	RGB* colors;
 
 	//ROM Loading
 	void loadROM(const char* file);
 	void decodeHeader(std::ifstream& rom);
+
+	//Palette
+	void createPalette();
 };
 
 #endif

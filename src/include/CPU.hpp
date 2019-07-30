@@ -35,12 +35,13 @@ private:
 	uint8_t dataBus = 0x00;
 	uint16_t addressBus = 0x0000;
 	std::function<void()> tickFunction;
+	int totalCycles; //Used to determine when to allow writes to PPU registers
+	bool allowWrites;
 	
 	//Debug
 	DebugInfo debugInfo;
 	bool debugEnabled;
 	std::fstream& log;
-	int totalCycles = 0;
 
 	//DMA Transfer
 	bool dmaTransfer = false;

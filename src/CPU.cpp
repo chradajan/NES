@@ -22,6 +22,9 @@ CPU::CPU(Cartridge* cart, PPU_Registers& ppu_reg, APU_IO_Registers& apu_io_reg, 
 	cycleCount = 0;
 	totalCycles = 0;
 	oddCycle = false;
+	allowWrites = false;
+
+	totalCycles = 0;
 
 	debugEnabled = true;
 
@@ -38,9 +41,10 @@ void CPU::reset()
 void CPU::tick()
 {
 	oddCycle = !oddCycle;
-
 	++cycleCount;
 	++totalCycles;
+	if(totalCycles >= 29658)
+		allowWrites = true;
 
 	if(dmaTransfer)
 		executeDMATransfer();
@@ -125,7 +129,7 @@ void CPU::write(uint16_t address, uint8_t data)
 	if(address < 0x2000) //Internal RAM
 		RAM[address % 0x0800] = data;
 	else if(address < 0x4000) //PPU registers
-		ppu_registers.write(address, data);
+		ppu_registers.write(address, data, allowWrites);
 	else if(address == 0x4014) //Trigger DMA Transfer
 	{
 		dmaTransfer = true;

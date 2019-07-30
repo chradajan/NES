@@ -2,10 +2,11 @@
 #include "mappers/NROM.hpp"
 #include <cassert>
 
-NES::NES(const char* file, std::fstream& cpuLog)
+NES::NES(const char* file, std::fstream& cpuLog, char* frameBuffer, bool& renderFrame)
 {
 	loadROM(file);
-	ppu = new PPU(cart);
+	createPalette();
+	ppu = new PPU(cart, colors, frameBuffer, renderFrame);
 	cpu = new CPU(cart, ppu->getRegisters(), apu_io_registers, cpuLog);
 }
 
@@ -22,6 +23,7 @@ NES::~NES()
 	delete cpu;
 	delete ppu;
 	delete cart;
+	delete[] colors;
 }
 
 void NES::loadROM(const char* file)
@@ -63,4 +65,17 @@ void NES::decodeHeader(std::ifstream& rom)
 
 	for(int i = 0; i < 5; ++i)
 		rom >> std::hex >> temp;
+}
+
+void NES::createPalette()
+{
+	colors = new RGB[64];
+	std::ifstream paletteFile("../palette/palette.pal", std::ios::binary);
+	for(int i = 0; i < 64; ++i)
+	{
+		paletteFile >> std::hex >> colors[i].R;
+		paletteFile >> std::hex >> colors[i].G;
+		paletteFile >> std::hex >> colors[i].B;
+	}
+	paletteFile.close();
 }

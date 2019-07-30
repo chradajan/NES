@@ -1,5 +1,16 @@
 #include "include/PPU.hpp"
 
+PPU_Registers::PPU_Registers(PPU& ppu) : ppu(ppu)
+{
+    PPUCTRL = 0x00;
+    PPUMASK = 0x00;
+    PPUSTATUS = 0x00;
+    OAMADDR = 0x00;
+    addressLatch = 0x0000;
+    dataBuffer = 0x00;
+    nmi = false;
+}
+
 uint8_t PPU_Registers::read(uint16_t address)
 {
     switch(address)
@@ -39,19 +50,23 @@ uint8_t PPU_Registers::read(uint16_t address)
             }
         }
     }
+    return 0x00; //Shouldn't happen
 }
 
-void PPU_Registers::write(uint16_t address, uint8_t data)
+void PPU_Registers::write(uint16_t address, uint8_t data, bool allowWrites)
 {
     switch(address)
     {
         case 0x2000: //PPUCTRL
-            if(PPUSTATUS >> 7 && data >> 7) //TODO: check if this is how NMI is generated
-                nmi = true;
+            //if(!allowWrites)
+                //return;
             ppu.reg.t = (ppu.reg.t & 0x73FF) | ((data & 0x03) << 10);
             PPUCTRL = data;
+            checkNMI();
             break;
         case 0x2001: //PPUMASK
+            //if(!allowWrites)
+                //return;
             PPUMASK = data;
             break;
         case 0x2002: // PPUSTATUS
@@ -65,6 +80,8 @@ void PPU_Registers::write(uint16_t address, uint8_t data)
             ++OAMADDR;
             break;
         case 0x2005: //PPUSCROLL
+            //if(!allowWrites)
+                //return;
             if(!ppu.reg.w) //First write
             {
                 ppu.reg.t = (ppu.reg.t & 0x7FE0) | (data >> 3);
@@ -80,6 +97,8 @@ void PPU_Registers::write(uint16_t address, uint8_t data)
             }
             break;
         case 0x2006: //PPUADDR
+            //if(!allowWrites)
+                //return;
             if(!ppu.reg.w) //First write
             {
                 ppu.reg.t = (ppu.reg.t & 0x00FF) | ((data & 0x3F) << 8);
@@ -109,11 +128,25 @@ bool PPU_Registers::renderingEnabled()
     return (PPUCTRL >> 3) & 0x03;
 }
 
+void PPU_Registers::checkNMI()
+{
+    if(PPUCTRL >> 7 && PPUSTATUS >> 7)
+        nmi = true;
+}
+
 //PPU
 
-PPU::PPU(Cartridge* cartridge) : cart(cartridge)
+PPU::PPU(Cartridge* cartridge, RGB* colors, char* frameBuffer, bool& renderFrame)
+: cart(cartridge), colors(colors), frameBuffer(frameBuffer), renderFrame(renderFrame)
 {
     reg.clear();
+    memMappedReg = new PPU_Registers(*this);
+    scanline = -1;
+    dot = 0;
+    fetchCycle = 0;
+    PT_offset = 0;
+    oddFrame = false;
+    frameBufferPointer = 0;
 }
 
 void PPU::tick()
@@ -123,8 +156,12 @@ void PPU::tick()
     else if(scanline < 240)
         visibleScanline();
     else if(scanline == 241 && dot == 1)
+    {
         memMappedReg->PPUSTATUS |= 0x80; //Set VBlank flag
-    //Else this is an idle cycle   
+        memMappedReg->checkNMI();
+    }
+    
+    incDot();
 }
 
 PPU_Registers& PPU::getRegisters()
@@ -199,6 +236,7 @@ uint16_t PPU::tileAddress()
         case 0x11:
             return 0x2C00 | (reg.v & 0x0FFF);
     }
+    return 0x0000; //Shouldn't happen
 }
 
 uint16_t PPU::attributeAddress()
@@ -215,13 +253,14 @@ uint16_t PPU::attributeAddress()
         case 0x11:
             return 0x2FC0 | (reg.v & 0x0C00) | ((reg.v >> 4) & 0x38) | ((reg.v >> 2) & 0x07);
     }
+    return 0x0000; //Shouldn't happen
 }
 
 void PPU::setAttributeBits()
 {
     NT_Addr -= 0x2000;
     NT_Addr %= 0x400;
-    bool right = ((NT_Addr % 32) % 4) / 2; //fakse if left half, true if right half
+    bool right = ((NT_Addr % 32) % 4) / 2; //false if left half, true if right half
     bool bottom = ((NT_Addr / 32) % 4) / 2; //false if top half, true if bottom half
     
     if(!right && !bottom) //Top left
@@ -236,25 +275,70 @@ void PPU::setAttributeBits()
 
 void PPU::preRenderScanline()
 {
-    if(dot == 0)
+    if(dot == 0 || !memMappedReg->renderingEnabled())
         return;
     else if(dot == 1)
-        memMappedReg->PPUSTATUS &= 0x3F; //Clear Vblank flag and sprite 0 hit
-    else if(dot < 257)
     {
-        backGroundFetchCycleEval();
-        spriteEval();
-        getPixel();
+        memMappedReg->PPUSTATUS &= 0x3F; //Clear Vblank flag and sprite 0 hit
+        backgroundFetchCycleEval();
     }
+    else if(dot < 257)
+        backgroundFetchCycleEval();
+    else if(dot == 257)
+        setHoriV();
+    else if(dot < 280)
+        return;
+    else if(dot < 305)
+        setVertV();
+    else if(dot < 321)
+        return;
+    else if(dot < 336)
+        backgroundFetchCycleEval();
+    else
+        read(tileAddress());
 }
 
 void PPU::visibleScanline()
 {
-
+    if(!memMappedReg->renderingEnabled())
+        return;
+    else if(dot == 0)
+    {
+        if(!oddFrame)
+            read(tileAddress());
+        else
+            return;        
+    }
+    else if(dot == 1)
+    {
+        backgroundFetchCycleEval();
+        //spriteEval();
+    }
+    else if(dot < 257)
+    {
+        backgroundFetchCycleEval();
+        //spriteEval();
+        getPixel();
+    }
+    else if(dot == 257)
+    {
+        setHoriV();
+        //spriteFetch();
+    }
+    else if(dot < 321)
+        //spriteFetch();
+        return;
+    else if(dot < 337)
+        backgroundFetchCycleEval();
+    else
+        read(tileAddress());    
 }
 
-void PPU::backGroundFetchCycleEval()
+void PPU::backgroundFetchCycleEval()
 {
+    if(!memMappedReg->renderingEnabled())
+        return;
+
     ++fetchCycle;
     switch(fetchCycle)
     {
@@ -290,7 +374,16 @@ void PPU::backGroundFetchCycleEval()
             PT_Shift_High |= BG_HighByte;    //Reload lower 8 bits of shift register
             setAttributeBits();
 
-            incHoriV();
+            if(dot == 256)
+                incVertV();
+            else
+                incHoriV();
+            
+            if(PT_offset == 7)
+                PT_offset = 0;
+            else
+                ++PT_offset;
+            
             fetchCycle = 0;        
         }
     }
@@ -339,4 +432,124 @@ void PPU::setVertV()
 {
     //Copy vertical related bits from t to v
     reg.v = (reg.v & 0x041F) | (reg.t & 0x7BE0);
+}
+
+void PPU::incDot()
+{
+    if(scanline == -1 && dot == 339 && oddFrame)
+    {
+        scanline = dot = 0;
+        oddFrame = false;
+    }
+    else if(scanline == 260 && dot == 340)
+    {
+        dot = 0;
+        scanline = -1;
+        oddFrame = !oddFrame;
+    }
+    else if(dot == 340)
+    {
+        ++scanline;
+        dot = 0;
+    }
+    else
+        ++dot;    
+}
+
+void PPU::spriteEval()
+{
+	if(dot == 0)
+		return;
+    else if(dot < 33)
+        secondaryOAM[dot - 1] = 0xFF;
+    else if(dot < 65)
+        return;
+	else if(dot == 65)
+	{
+		N = read(0x2003); //OAMADDR
+		M = 0;
+        secondaryOAM_Pointer = 0;
+        found8Sprites = false;
+		OAM_Data = primaryOAM[N + M];
+	}
+	else if(dot < 257 && dot % 2 == 1)
+		OAM_Data = primaryOAM[N + M];
+	else if(dot < 257 && dot % 2 == 0)
+		spriteEvalWrite();
+	else if(dot < 321)
+		spriteFetch();
+}
+
+void PPU::spriteEvalWrite()
+{
+	if(N >= 64)
+		return;
+	else if(!found8Sprites && M == 0)
+	{
+		secondaryOAM[secondaryOAM_Pointer] = OAM_Data;
+		if(OAM_Data == scanline)
+		{
+			++secondaryOAM_Pointer;
+			++M;
+		}
+		else
+			N += 4;
+	}
+	else if(!found8Sprites && M > 0)
+	{
+		secondaryOAM[secondaryOAM_Pointer++] = OAM_Data;
+		found8Sprites = (secondaryOAM_Pointer == 32);
+		if(M == 3)
+		{
+			M = 0;
+			N += 4;
+		}
+		else
+			++M;
+	}
+	else if(found8Sprites)
+		spriteOverflowEval();
+}
+
+void PPU::spriteOverflowEval()
+{
+	if((memMappedReg->PPUSTATUS & 0x40) || N >= 64) //Check sprite overflow flag or if all sprites have been evaluated
+		return;
+	else if(primaryOAM[N + M] == scanline)
+		memMappedReg->PPUSTATUS |= 0x40; //Set sprite overflow flag
+	else
+	{
+		N += 4;
+		M = (M == 3 ? 0 : M + 1);
+	}
+}
+
+void PPU::spriteFetch()
+{
+
+}
+
+void PPU::getPixel()
+{
+    uint8_t BG_Pixel = 0x00, selectMask;
+    selectMask = 0x8000 >> reg.x;
+    BG_Pixel = (AT_Bits << 2) | ((PT_Shift_High & selectMask) >> (14 - selectMask)) | ((PT_Shift_Low & selectMask) >> (15 - selectMask));
+    PT_Shift_High <<= 1;
+    PT_Shift_Low <<= 1;
+    uint16_t addr = (0x3F0 << 1) | BG_Pixel;
+    decodePixel(read(addr));
+}
+
+void PPU::decodePixel(uint8_t paletteData)
+{
+    RGB pixelColor = colors[paletteData];
+    frameBuffer[frameBufferPointer] = pixelColor.R;
+    frameBuffer[frameBufferPointer + 1] = pixelColor.G;
+    frameBuffer[frameBufferPointer + 2] = pixelColor.B;
+    frameBufferPointer += 3;
+    if(frameBufferPointer >= 184320)
+    {
+        renderFrame = true;
+        frameBufferPointer = 0;
+    }
 }
