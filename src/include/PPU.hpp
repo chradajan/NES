@@ -44,8 +44,9 @@ private:
     bool& frameReady;
 
     //State
-    bool nmi;
+    bool nmi, oddFrame;
     int scanline, dot;
+    uint8_t NT_Byte, AT_Byte;
 
     //Read/write
     uint8_t read(uint16_t address);
@@ -65,6 +66,17 @@ private:
     void incVertV();
     void setHoriV();
     void setVertV();
+    void shiftRegisters();
+    void backgroundFetch();
+    void setAttributeLatch();
+
+    //Rendering
+    bool AT_Latch_Low, AT_Latch_High;
+    uint8_t AT_Shifter_Low, AT_Shifter_High, PT_Temp_Low, PT_Temp_High;
+    uint16_t PT_Addr, PT_Shifter_Low, PT_Shifter_High;
+    int frameBufferPointer;
+    void getPixel();
+    void renderPixel(uint8_t pixel);
 };
 
 #endif
