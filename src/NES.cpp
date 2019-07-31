@@ -2,12 +2,12 @@
 #include "mappers/NROM.hpp"
 #include <cassert>
 
-NES::NES(const char* file, std::fstream& cpuLog, char* frameBuffer, bool& renderFrame)
+NES::NES(const char* file, std::fstream& cpuLog, char* frameBuffer, bool& frameReady)
 {
 	loadROM(file);
 	createPalette();
-	ppu = new PPU(cart, colors, frameBuffer, renderFrame);
-	cpu = new CPU(cart, ppu->getRegisters(), apu_io_registers, cpuLog);
+	ppu = new PPU(cart, colors, frameBuffer, frameReady);
+	cpu = new CPU(cart, *ppu, apu_io_registers, cpuLog);
 }
 
 void NES::tick()

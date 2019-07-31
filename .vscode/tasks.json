@@ -1,0 +1,31 @@
+{
+    "version": "2.0.0",
+    "tasks": [
+        {
+            "label": "make",
+            "type": "shell",
+            "command": "g++",
+            "args": [
+                "-ggdb",
+                "-std=c++17",
+                "-Wall",
+                "-Wextra",
+                "./src/*.cpp",
+                "./src/mappers/*.cpp",
+                "-I", "C:\\Development\\SDL2_MinGW_32Bit\\include",
+                "-L", "C:\\Development\\SDL2_MinGW_32Bit\\lib",
+                "-lmingw32",
+                "-lSDL2main",
+                "-lSDL2",
+                "-o", "./bin/main"
+            ],
+            "group": {
+                "kind": "build",
+                "isDefault": true
+                
+            }
+        }
+    ]
+}
+
+//g++ -ggdb -std=c++17 -Wall -Wextra ./src/*.cpp ./src/mappers/*.cpp -IC:\\Development\\SDL2_MinGW_32Bit\\include -LC:\\Development\\SDL2_MinGW_32Bit\\lib -w -Wl,-subsystem,windows -lmingw32 -lSDL2main -lSDL2 -o ./bin/main

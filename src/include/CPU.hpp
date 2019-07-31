@@ -13,7 +13,7 @@
 class CPU
 {
 public:
-	CPU(Cartridge* cart, PPU_Registers& ppu_reg, APU_IO_Registers& apu_io_reg, std::fstream& cpuLog);
+	CPU(Cartridge* cart, PPU& ppu, APU_IO_Registers& apu_io_reg, std::fstream& cpuLog);
 	void reset();
 	void tick();
 	~CPU();
@@ -24,7 +24,7 @@ public:
 private:
 	Cartridge* cart;
 	CPU_Registers cpu_registers;
-	PPU_Registers& ppu_registers;
+	PPU& ppu;
 	APU_IO_Registers& apu_io_registers;
 	uint8_t RAM[0x0800];
 

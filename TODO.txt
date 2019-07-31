@@ -17,3 +17,5 @@ GUI:
 SDL:
     Figure out how this works
     Framebuffer
+
+SDL: copy content from bin to mingw install

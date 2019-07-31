@@ -1,7 +1,7 @@
 #include "include/CPU.hpp"
 
-CPU::CPU(Cartridge* cart, PPU_Registers& ppu_reg, APU_IO_Registers& apu_io_reg, std::fstream& cpuLog) 
-: cart(cart), ppu_registers(ppu_reg), apu_io_registers(apu_io_reg), log(cpuLog)
+CPU::CPU(Cartridge* cart, PPU& ppu, APU_IO_Registers& apu_io_reg, std::fstream& cpuLog) 
+: cart(cart), ppu(ppu), apu_io_registers(apu_io_reg), log(cpuLog)
 {
 	cpu_registers.SR = 0x34;
 	cpu_registers.AC = 0;
@@ -110,7 +110,7 @@ uint8_t CPU::read(uint16_t address) const
 	if(address < 0x2000) //Internal RAM
 		return RAM[address % 0x0800];
 	else if(address < 0x4000) //PPU registers
-		return ppu_registers.read(address);
+		return ppu.readMemMappedReg(address);
 	else if(address < 0x4018) //APU or I/O Registers
 		return apu_io_registers.read(address);
 	else if(address < 0x4020) //Disabled APU and I/O Functionality
@@ -124,7 +124,7 @@ void CPU::write(uint16_t address, uint8_t data)
 	if(address < 0x2000) //Internal RAM
 		RAM[address % 0x0800] = data;
 	else if(address < 0x4000) //PPU registers
-		ppu_registers.write(address, data);
+		ppu.writeMemMappedReg(address, data);
 	else if(address == 0x4014) //Trigger DMA Transfer
 	{
 		dmaTransfer = true;
@@ -155,7 +155,7 @@ void CPU::push(uint8_t data)
 
 void CPU::readOPCode()
 {
-	if(ppu_registers.NMI())
+	if(ppu.NMI())
 	{
 		cycleCount = 1;
 		tickFunction = std::bind(&CPU::NMI, this);
