@@ -13,8 +13,6 @@ public:
     void tick();
     uint8_t readMemMappedReg(uint16_t address);
     void writeMemMappedReg(uint16_t address, uint8_t data);
-    uint8_t read(uint16_t address);
-    void write(uint16_t address, uint8_t data);
     bool NMI();
     ~PPU();
 private:
@@ -31,15 +29,42 @@ private:
         uint8_t x;
         bool w;
     };
+
+    //Memory
     PPU_Registers reg;
     uint8_t VRAM[0x800];
     uint8_t OAM[0x100];
     uint8_t OAM_Secondary[0x20];
+    uint8_t paletteRAM[0x20];
 
+    //Parameters
     Cartridge& cart;
     RGB* colors;
     char* frameBuffer;
     bool& frameReady;
+
+    //State
+    bool nmi;
+    int scanline, dot;
+
+    //Read/write
+    uint8_t read(uint16_t address);
+    void write(uint16_t address, uint8_t data);
+    uint16_t mirrored_NT_Addr(uint16_t address);
+    uint16_t mirrored_Palette_Addr(uint16_t address);
+
+    //Register checks
+    void checkNMI();
+    bool renderingEnabled();
+
+    //Scanline operations
+    void prerenderScanline();
+    void visibleScanline();
+    void incDot();
+    void incHoriV();
+    void incVertV();
+    void setHoriV();
+    void setVertV();
 };
 
 #endif
