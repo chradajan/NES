@@ -97,9 +97,6 @@ struct PPU_Registers
 	uint8_t PPUSTATUS;
 	uint8_t OAMADDR;
 	uint8_t OAMDATA;
-	uint8_t PPUSTROLL;
-	uint8_t PPUADDR;
-	uint8_t PPUDATA;
 
     PPU_Registers(PPU& ppu);
     uint8_t read(uint16_t address);
@@ -110,7 +107,6 @@ struct PPU_Registers
 
 private:
     PPU& ppu;
-    uint16_t addressLatch;
     uint8_t dataBuffer;
     bool nmi;
 };

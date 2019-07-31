@@ -6,13 +6,15 @@ PPU_Registers::PPU_Registers(PPU& ppu) : ppu(ppu)
     PPUMASK = 0x00;
     PPUSTATUS = 0x00;
     OAMADDR = 0x00;
-    addressLatch = 0x0000;
+    OAMDATA = 0x00;
     dataBuffer = 0x00;
     nmi = false;
 }
 
 uint8_t PPU_Registers::read(uint16_t address)
 {
+    if(address > 0x2007)
+        address = (address % 8) + 0x2000;
     switch(address)
     {
         case 0x2000: //PPUCTRL
@@ -23,7 +25,6 @@ uint8_t PPU_Registers::read(uint16_t address)
         {
             uint8_t temp = PPUSTATUS;
             PPUSTATUS &= 0x7F;
-            addressLatch = 0x0000;
             ppu.reg.w = false;
             return temp;
         }
@@ -55,6 +56,8 @@ uint8_t PPU_Registers::read(uint16_t address)
 
 void PPU_Registers::write(uint16_t address, uint8_t data)
 {
+    if(address > 0x2007)
+        address = (address % 8) + 0x2000;
     switch(address)
     {
         case 0x2000: //PPUCTRL
@@ -81,13 +84,11 @@ void PPU_Registers::write(uint16_t address, uint8_t data)
                 ppu.reg.t = (ppu.reg.t & 0x7FE0) | (data >> 3);
                 ppu.reg.x = data & 0x07;
                 ppu.reg.w = true;
-                addressLatch = data; //Not sure if address latch is really needed
             }
             else //Second write
             {
                 ppu.reg.t = (ppu.reg.t & 0x0C1F) | ((data & 0x07) << 12) | ((data & 0xF8) << 2);
                 ppu.reg.w = false;
-                addressLatch = (addressLatch << 8) | data; //Not sure if address latch is really needed
             }
             break;
         case 0x2006: //PPUADDR
@@ -95,18 +96,17 @@ void PPU_Registers::write(uint16_t address, uint8_t data)
             {
                 ppu.reg.t = (ppu.reg.t & 0x00FF) | ((data & 0x3F) << 8);
                 ppu.reg.w = true;
-                addressLatch = data; //Not sure if address latch is really needed
             }
             else
             {
                 ppu.reg.t = (ppu.reg.t & 0x7F00) | data;
                 ppu.reg.v = ppu.reg.t;
                 ppu.reg.w = false;
-                addressLatch = (addressLatch << 8) | data; //Not sure if address latch is really needed
             }
             break;
         case 0x2007: //PPUDATA
             ppu.write(ppu.reg.v, data);
+            //std::cout << std::hex << (uint)ppu.reg.v << std::endl;
             if((PPUCTRL >> 2) & 0x01)
                 ppu.reg.v += 0x20;
             else
@@ -117,7 +117,7 @@ void PPU_Registers::write(uint16_t address, uint8_t data)
 
 bool PPU_Registers::renderingEnabled()
 {
-    return (PPUCTRL >> 3) & 0x03;
+    return (PPUMASK >> 3) & 0x03;
 }
 
 void PPU_Registers::checkNMI()
@@ -203,14 +203,9 @@ void PPU::write(uint16_t address, uint8_t data)
     if(address < 0x2000) //Pattern table
         cart->writeCHR(address, data);
     else if(address < 0x3F00) //Nametables
-    {
         VRAM[nametableAddress(address)] = data;
-    }
     else
-    {
-        //std::cout << std::hex << (uint)data << std::endl;
         paletteRAM[paletteAddress(address)] = data;
-    }
 }
 
 uint16_t PPU::nametableAddress(uint16_t address)
