@@ -1,7 +1,7 @@
 #include "include/PPU.hpp"
 
-PPU::PPU(Cartridge* cart, RGB* colors, char* frameBuffer, bool& frameReady)
-: cart(*cart), colors(colors), frameBuffer(frameBuffer), frameReady(frameReady)
+PPU::PPU(Cartridge* cart, RGB* colors, char* frameBuffer, bool& frameReady, int& FC)
+: cart(*cart), colors(colors), frameBuffer(frameBuffer), frameReady(frameReady), FC(FC)
 {
     for(int i = 0; i < 0x800; ++i)
         VRAM[i] = 0x00;
@@ -12,8 +12,11 @@ PPU::PPU(Cartridge* cart, RGB* colors, char* frameBuffer, bool& frameReady)
     reg.PPUCTRL = reg.PPUMASK = reg.PPUSTATUS = reg.OAMADDR = reg.PPUDATA_Buffer = reg.x = 0x00;
     reg.v = reg.t = 0x0000;
     reg.w = false;
-    scanline = -1;
-    dot = 0;
+    // scanline = -1;
+    // dot = 0;
+    nmi = false;
+    scanline = 0;
+    dot = 30;
     oddFrame = false;
     AT_Latch_Low = AT_Latch_High = false;
     AT_Shifter_Low = AT_Shifter_High = PT_Temp_Low = PT_Temp_High = 0x00;
@@ -28,7 +31,10 @@ void PPU::tick()
     else if(scanline < 240)
         visibleScanline();
     else if(scanline == 241 && dot == 1)
+    {
         reg.PPUSTATUS |= 0x80; //Set VBlank flag
+        checkNMI();
+    }
 
     incDot();
 }
@@ -87,8 +93,7 @@ void PPU::writeMemMappedReg(uint16_t address, uint8_t data)
             reg.OAMADDR = data;
             break;
         case 0x2004: //OAMDATA
-            OAM[reg.OAMADDR] = data;
-            ++reg.OAMADDR;
+            OAM[reg.OAMADDR++] = data;
             break;
         case 0x2005: //PPUSCROLL
             if(!reg.w) //First write
@@ -140,7 +145,9 @@ void PPU::write(uint16_t address, uint8_t data)
     if(address < 0x2000)
         cart.writeCHR(address, data);
     else if(address < 0x3F00)
+    {
         VRAM[mirrored_NT_Addr(address)] = data;
+    }
     else
         paletteRAM[mirrored_Palette_Addr(address)] = data;
 }
@@ -182,13 +189,18 @@ uint16_t PPU::mirrored_Palette_Addr(uint16_t address)
 
 bool PPU::NMI()
 {
-    return nmi;
+    if(nmi)
+    {
+        nmi = false;
+        return true;
+    }
+    else
+        return false;    
 }
 
 void PPU::checkNMI()
 {
-    if(reg.PPUCTRL >> 7 && reg.PPUSTATUS >> 7)
-        nmi = true;
+    nmi = (reg.PPUCTRL >> 7 && reg.PPUSTATUS >> 7);
 }
 
 bool PPU::renderingEnabled()
@@ -275,10 +287,11 @@ void PPU::incDot()
     {
         dot = 0;
         ++scanline;
-        if(scanline == 261)
+        if(scanline == 260)
         {
-            scanline = 0;
+            scanline = -1;
             oddFrame = !oddFrame;
+            ++FC;
         }
     }
     else

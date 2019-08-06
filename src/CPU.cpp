@@ -1,13 +1,13 @@
 #include "include/CPU.hpp"
 
 CPU::CPU(Cartridge* cart, PPU& ppu, APU_IO_Registers& apu_io_reg, std::fstream& cpuLog) 
-: cart(cart), ppu(ppu), apu_io_registers(apu_io_reg), log(cpuLog)
+: cart(*cart), ppu(ppu), apu_io_registers(apu_io_reg), log(cpuLog)
 {
-	cpu_registers.SR = 0x34;
-	cpu_registers.AC = 0;
-	cpu_registers.X = 0;
-	cpu_registers.Y = 0;
-	cpu_registers.SP = 0xFD;
+	reg.SR = 0x34;
+	reg.AC = 0;
+	reg.X = 0;
+	reg.Y = 0;
+	reg.SP = 0xFD;
 
 	write(0x4017, 0x00);
 	write(0x4015, 0x00);
@@ -23,7 +23,7 @@ CPU::CPU(Cartridge* cart, PPU& ppu, APU_IO_Registers& apu_io_reg, std::fstream& 
 
 	totalCycles = 0;
 
-	debugEnabled = false;
+	debugEnabled = true;
 
 	Reset_Vector();
 
@@ -54,11 +54,11 @@ CPU::~CPU() {}
 void CPU::executeDMATransfer()
 {
 	if(dmaTransferCycles == 514)
-		read(cpu_registers.PC); //Dummy read
+		read(reg.PC); //Dummy read
 	else if(oddCycle && dmaTransferCycles == 513)
 		return;
 	else if(dmaTransferCycles == 513)
-		read(cpu_registers.PC); //Dummy read
+		read(reg.PC); //Dummy read
 	else if(dmaTransferCycles % 2 == 0)
 		dmaData = read(dmaPage + dmaLowByte++);
 	else if(dmaTransferCycles % 2 == 1)
@@ -66,7 +66,10 @@ void CPU::executeDMATransfer()
 
 	--dmaTransferCycles;
 	if(dmaTransferCycles == 0)
+	{
 		dmaTransfer = false;
+		cycleCount = cycleCountReturn;
+	}
 }
 
 void CPU::NMI()
@@ -74,20 +77,20 @@ void CPU::NMI()
 	switch(cycleCount)
 	{
 		case 1:
-			read(cpu_registers.PC); //Dummy read
+			read(reg.PC); //Dummy read
 			break;
 		case 2:
-			read(cpu_registers.PC); //Dummy read
+			read(reg.PC); //Dummy read
 			break;
 		case 3:
-			push(cpu_registers.PC >> 8);
+			push(reg.PC >> 8);
 			break;
 		case 4:
-			push(cpu_registers.PC & 0xFF);
+			push(reg.PC & 0xFF);
 			break;
 		case 5:
 		{
-			uint8_t temp = cpu_registers.SR;
+			uint8_t temp = reg.SR;
 			temp |= 0x20;
 			temp &= 0xEF;
 			push(temp);
@@ -100,7 +103,7 @@ void CPU::NMI()
 			addressBus = (read(0xFFFB) << 8) + addressBus;
 			break;
 		case 8:
-			cpu_registers.PC = addressBus;
+			reg.PC = addressBus;
 			readOPCode();
 	}
 }
@@ -116,7 +119,7 @@ uint8_t CPU::read(uint16_t address) const
 	else if(address < 0x4020) //Disabled APU and I/O Functionality
 		throw Unsupported("CPU Test Mode Disabled");
 	else //Cartridge Space
-		return cart->readPRG(address);
+		return cart.readPRG(address);
 }
 
 void CPU::write(uint16_t address, uint8_t data)
@@ -131,6 +134,7 @@ void CPU::write(uint16_t address, uint8_t data)
 		dmaPage = (data << 8);
 		dmaLowByte = 0x00;
 		dmaTransferCycles = 513 + (oddCycle ? 1 : 0);
+		cycleCountReturn = cycleCount;
 		apu_io_registers.write(address, data);
 	}
 	else if(address < 0x4018) //APU or I/O Registers
@@ -138,127 +142,129 @@ void CPU::write(uint16_t address, uint8_t data)
 	else if(address < 0x4020) //Disabled APU and I/O Functionality
 		throw Unsupported("CPU Test Mode Disabled");
 	else //Cartridge Space
-		cart->writePRG(address, data);
+		cart.writePRG(address, data);
 }
 
 uint8_t CPU::pop()
 {
-	++cpu_registers.SP;
-	return read(0x0100 + cpu_registers.SP);
+	++reg.SP;
+	return read(0x0100 + reg.SP);
 }
 
 void CPU::push(uint8_t data)
 {
-	write(0x0100 + cpu_registers.SP, data);
-	--cpu_registers.SP;
+	write(0x0100 + reg.SP, data);
+	--reg.SP;
 }
 
 void CPU::readOPCode()
 {
 	if(ppu.NMI())
 	{
+		if(debugEnabled)
+			debug();
 		cycleCount = 1;
 		tickFunction = std::bind(&CPU::NMI, this);
 		tickFunction();
 	}
 	else
 	{
-		currentOP = read(cpu_registers.PC++);
-		cycleCount = 0;
+		currentOP = read(reg.PC++);
 		if(debugEnabled)
 			debug();
+		cycleCount = 0;
 	}
 }
 
 uint8_t CPU::readROM()
 {
-	uint8_t temp = read(cpu_registers.PC++);
+	uint8_t operand = read(reg.PC++);
 	if(debugEnabled)
-		debugInfo.add(temp);
-	return temp;
+		debugInfo.add(operand);
+	return operand;
 }
 
 bool CPU::if_carry()
 {
-	return cpu_registers.SR & 0x01;
+	return reg.SR & 0x01;
 }
 
 bool CPU::if_overflow()
 {
-	return (cpu_registers.SR >> 6) & 0x01;
+	return (reg.SR >> 6) & 0x01;
 }
 
 bool CPU::if_sign()
 {
-	return (cpu_registers.SR >> 7) & 0x01;
+	return (reg.SR >> 7) & 0x01;
 }
 
 bool CPU::if_zero()
 {
-	return (cpu_registers.SR >> 1) & 0x01;
+	return (reg.SR >> 1) & 0x01;
 }
 
 void CPU::set_carry(bool condition)
 {
 	if(condition)
-		cpu_registers.SR |= 0x01;
+		reg.SR |= 0x01;
 	else
-		cpu_registers.SR &= ~(0x01);
+		reg.SR &= ~(0x01);
 }
 
 void CPU::set_zero(uint8_t value)
 {
 	if(value == 0)
-		cpu_registers.SR |= 0x01 << 1;
+		reg.SR |= 0x01 << 1;
 	else
-		cpu_registers.SR &= ~(0x01 << 1);
+		reg.SR &= ~(0x01 << 1);
 }
 
 void CPU::set_interrupt(bool condition)
 {
 	if(condition)
-		cpu_registers.SR |= 0x01 << 2;
+		reg.SR |= 0x01 << 2;
 	else
-		cpu_registers.SR &= ~(0x01 << 2);
+		reg.SR &= ~(0x01 << 2);
 }
 
 void CPU::set_decimal(bool condition)
 {
 	if(condition)
-		cpu_registers.SR |= 0x01 << 3;
+		reg.SR |= 0x01 << 3;
 	else
-		cpu_registers.SR &= ~(0x01 << 3);
+		reg.SR &= ~(0x01 << 3);
 }
 
 void CPU::set_break(bool condition)
 {
 	if(condition)
-		cpu_registers.SR |= 0x01 << 4;
+		reg.SR |= 0x01 << 4;
 	else
-		cpu_registers.SR &= ~(0x01 << 4);
+		reg.SR &= ~(0x01 << 4);
 }
 
 void CPU::set_overflow(bool condition)
 {
 	if(condition)
-		cpu_registers.SR |= 0x01 << 6;
+		reg.SR |= 0x01 << 6;
 	else
-		cpu_registers.SR &= ~(0x01 << 6);
+		reg.SR &= ~(0x01 << 6);
 }
 
 void CPU::set_sign(uint8_t value)
 {
 	if(value >= 0x80)
-		cpu_registers.SR |= 0x01 << 7;
+		reg.SR |= 0x01 << 7;
 	else
-		cpu_registers.SR &= ~(0x01 << 7);
+		reg.SR &= ~(0x01 << 7);
 }
 
 void CPU::Reset_Vector()
 {
 		addressBus = read(0xFFFC);
 		addressBus = (read(0xFFFD) << 8) + addressBus;
-		cpu_registers.PC = addressBus;
+		reg.PC = addressBus;
 }
 
 void CPU::IRQ_BRK_Vector()
@@ -272,7 +278,7 @@ void CPU::IRQ_BRK_Vector()
 			addressBus = (read(0xFFFF) << 8) + addressBus;
 			break;
 		case 3:
-			cpu_registers.PC = addressBus;
+			reg.PC = addressBus;
 			readOPCode();
 	}
 }
@@ -282,7 +288,7 @@ void CPU::implied(std::function<void()> executeInstruction)
 	switch(cycleCount)
 	{
 		case 1:
-			read(cpu_registers.PC); //Dummy read
+			read(reg.PC); //Dummy read
 			break;
 		case 2:
 			executeInstruction();
@@ -399,7 +405,7 @@ void CPU::indirectX(std::function<void()> executeInstruction)
 			break;
 		case 2:
 			read(dataBus); //Dummy read
-			dataBus += cpu_registers.X;
+			dataBus += reg.X;
 			break;
 		case 3:
 			addressBus = read(dataBus);
@@ -432,17 +438,17 @@ void CPU::indirectY(std::function<void()> executeInstruction)
 			addressBus = (read(dataBus) << 8) + addressBus;
 			break;
 		case 4:
-			if(((addressBus & 0xFF) + cpu_registers.Y) <= 0xFF)
+			if(((addressBus & 0xFF) + reg.Y) <= 0xFF)
 			{
-				addressBus += cpu_registers.Y;
+				addressBus += reg.Y;
 				dataBus = read(addressBus);
 				++cycleCount; //Skip next step since page boundary is not crossed
 			}
 			else
-				read((addressBus & 0xFF00) + ((addressBus + cpu_registers.Y) & 0xFF)); //Dummy read since page boundary crossed
+				read((addressBus & 0xFF00) + ((addressBus + reg.Y) & 0xFF)); //Dummy read since page boundary crossed
 			break;
 		case 5:
-			addressBus += cpu_registers.Y;
+			addressBus += reg.Y;
 			dataBus = read(addressBus);
 			break;
 		case 6:
@@ -457,11 +463,11 @@ uint16_t CPU::relativeAddress(uint8_t offset)
 	// if(isNegative)
 	// {
 	// 	offset &= 0x7F;
-	// 	return cpu_registers.PC - offset;
+	// 	return reg.PC - offset;
 	// }
-	// return cpu_registers.PC + offset;
+	// return reg.PC + offset;
 	int8_t signedOffset = offset;
-	return cpu_registers.PC + signedOffset;
+	return reg.PC + signedOffset;
 }
 
 void CPU::relative(bool condition)
@@ -476,19 +482,19 @@ void CPU::relative(bool condition)
 			if(!condition)
 				readOPCode();
 			else
-				read((cpu_registers.PC & 0xFF00) + (addressBus & 0xFF)); //Dummy read
+				read((reg.PC & 0xFF00) + (addressBus & 0xFF)); //Dummy read
 			break;
 		case 3:
-			if((cpu_registers.PC & 0xFF00) != (addressBus & 0xFF00))
+			if((reg.PC & 0xFF00) != (addressBus & 0xFF00))
 				read(addressBus); //Dummy read
 			else
 			{
-				cpu_registers.PC = addressBus;
+				reg.PC = addressBus;
 				readOPCode();
 			}
 			break;
 		case 4:
-			cpu_registers.PC = addressBus;
+			reg.PC = addressBus;
 			readOPCode();
 	}
 }
@@ -577,7 +583,7 @@ void CPU::indirectX_Store(const uint8_t& regValue)
 			break;
 		case 2:
 			read(dataBus); //Dummy read
-			dataBus += cpu_registers.X;
+			dataBus += reg.X;
 			break;
 		case 3:
 			addressBus = read(dataBus);
@@ -608,8 +614,8 @@ void CPU::indirectY_Store(const uint8_t& regValue)
 			addressBus = (read(addressBus + 1) << 8) + dataBus;
 			break;
 		case 4:
-			read((addressBus & 0xFF00) + ((addressBus + cpu_registers.Y) & 0xFF)); //Dummy read
-			addressBus += cpu_registers.Y;
+			read((addressBus & 0xFF00) + ((addressBus + reg.Y) & 0xFF)); //Dummy read
+			addressBus += reg.Y;
 			break;
 		case 5:
 			write(addressBus, regValue);
@@ -624,12 +630,12 @@ void CPU::accumulator(std::function<void()> executeInstruction)
 	switch(cycleCount)
 	{
 		case 1:
-			read(cpu_registers.PC); //Dummy read
-			dataBus = cpu_registers.AC;
+			read(reg.PC); //Dummy read
+			dataBus = reg.AC;
 			break;
 		case 2:
 			executeInstruction();
-			cpu_registers.AC = dataBus;
+			reg.AC = dataBus;
 			readOPCode();
 			break;
 	}
@@ -666,7 +672,7 @@ void CPU::zeroPageX_RMW(std::function<void()> executeInstruction)
 			break;
 		case 2:
 			read(addressBus); //Dummy read
-			dataBus += cpu_registers.X;
+			dataBus += reg.X;
 			addressBus = dataBus;
 			break;
 		case 3:
@@ -720,11 +726,11 @@ void CPU::absoluteX_RMW(std::function<void()> executeInstruction)
 			addressBus = readROM();
 			break;
 		case 3:
-			read((addressBus << 8) + ((dataBus + cpu_registers.X) & 0xFF)); //Dummy read
+			read((addressBus << 8) + ((dataBus + reg.X) & 0xFF)); //Dummy read
 			addressBus = (addressBus << 8) + dataBus;
 			break;
 		case 4:
-			addressBus += cpu_registers.X; 
+			addressBus += reg.X; 
 			dataBus = read(addressBus);
 			break;
 		case 5:
@@ -741,20 +747,20 @@ void CPU::absoluteX_RMW(std::function<void()> executeInstruction)
 
 void CPU::ADC()
 {
-	uint16_t temp = dataBus + cpu_registers.AC + (if_carry() ? 1 : 0);
+	uint16_t temp = dataBus + reg.AC + (if_carry() ? 1 : 0);
 	set_zero(temp & 0xFF);
 	set_sign(temp);
-	set_overflow(!((cpu_registers.AC ^ dataBus) & 0x80) && ((cpu_registers.AC ^ temp) & 0x80));
+	set_overflow(!((reg.AC ^ dataBus) & 0x80) && ((reg.AC ^ temp) & 0x80));
 	set_carry(temp > 0xFF);
-	cpu_registers.AC = temp & 0xFF;
+	reg.AC = temp & 0xFF;
 }
 
 void CPU::AND()
 {
-	dataBus &= cpu_registers.AC;
+	dataBus &= reg.AC;
 	set_sign(dataBus);
 	set_zero(dataBus);
-	cpu_registers.AC = dataBus;
+	reg.AC = dataBus;
 }
 
 void CPU::ASL()
@@ -769,7 +775,7 @@ void CPU::BIT()
 {
 	set_sign(dataBus);
 	set_overflow(0x40 & dataBus);
-	set_zero(dataBus & cpu_registers.AC);
+	set_zero(dataBus & reg.AC);
 }
 
 void CPU::BRK()
@@ -780,14 +786,14 @@ void CPU::BRK()
 			readROM(); //Absorb padding byte after BRK
 			break;
 		case 2:
-			push(cpu_registers.PC >> 8);
+			push(reg.PC >> 8);
 			break;
 		case 3:
-			push(cpu_registers.PC & 0xFF);
+			push(reg.PC & 0xFF);
 			break;
 		case 4:
 		{
-			uint8_t temp = cpu_registers.SR; //Set bits 5 and 4 to distinguish how value was pushed
+			uint8_t temp = reg.SR; //Set bits 5 and 4 to distinguish how value was pushed
 			temp |= 0x1 << 5;
 			temp |= 0x1 << 4;
 			push(temp);
@@ -800,7 +806,7 @@ void CPU::BRK()
 			addressBus = (read(0xFFFF) << 8) + addressBus;
 			break;
 		case 7:
-			cpu_registers.PC = addressBus;
+			reg.PC = addressBus;
 			readOPCode();
 	}
 }
@@ -823,25 +829,25 @@ void CPU::DEC()
 
 void CPU::DEX()
 {
-	uint16_t temp = (cpu_registers.X - 1) & 0xFF;
+	uint16_t temp = (reg.X - 1) & 0xFF;
 	set_sign(temp);
 	set_zero(temp);
-	cpu_registers.X = temp;
+	reg.X = temp;
 }
 
 void CPU::DEY()
 {
-	uint16_t temp = (cpu_registers.Y - 1) & 0xFF;
+	uint16_t temp = (reg.Y - 1) & 0xFF;
 	set_sign(temp);
 	set_zero(temp);
-	cpu_registers.Y = temp;
+	reg.Y = temp;
 }
 
 void CPU::EOR()
 {
-	cpu_registers.AC ^= dataBus;
-	set_sign(cpu_registers.AC);
-	set_zero(cpu_registers.AC);
+	reg.AC ^= dataBus;
+	set_sign(reg.AC);
+	set_zero(reg.AC);
 }
 
 void CPU::INC()
@@ -854,18 +860,18 @@ void CPU::INC()
 
 void CPU::INX()
 {
-	uint16_t temp = (cpu_registers.X + 1) & 0xFF;
+	uint16_t temp = (reg.X + 1) & 0xFF;
 	set_sign(temp);
 	set_zero(temp);
-	cpu_registers.X = temp;
+	reg.X = temp;
 }
 
 void CPU::INY()
 {
-	uint16_t temp = (cpu_registers.Y + 1) & 0xFF;
+	uint16_t temp = (reg.Y + 1) & 0xFF;
 	set_sign(temp);
 	set_zero(temp);
-	cpu_registers.Y = temp;
+	reg.Y = temp;
 }
 
 void CPU::absoluteJMP()
@@ -879,7 +885,7 @@ void CPU::absoluteJMP()
 			addressBus = (readROM() << 8) + addressBus;
 			break;
 		case 3:
-			cpu_registers.PC = addressBus;
+			reg.PC = addressBus;
 			readOPCode();
 	}
 }
@@ -902,7 +908,7 @@ void CPU::indirectJMP()
 			addressBus = (read(addressBus) << 8) + dataBus;
 			break;
 		case 5:
-			cpu_registers.PC = addressBus;
+			reg.PC = addressBus;
 			readOPCode();
 	}
 }
@@ -915,19 +921,19 @@ void CPU::JSR()
 			addressBus = readROM();
 			break;
 		case 2:
-			read(0x0100 + cpu_registers.SP); //Dummy read
+			read(0x0100 + reg.SP); //Dummy read
 			break;
 		case 3:
-			push(cpu_registers.PC >> 8);
+			push(reg.PC >> 8);
 			break;
 		case 4:
-			push(cpu_registers.PC & 0xFF);
+			push(reg.PC & 0xFF);
 			break;
 		case 5:
 			addressBus = (readROM() << 8) + addressBus;
 			break;
 		case 6:
-			cpu_registers.PC = addressBus;
+			reg.PC = addressBus;
 			readOPCode();
 	}
 }
@@ -936,20 +942,20 @@ void CPU::LDA()
 {
 	set_sign(dataBus);
 	set_zero(dataBus);
-	cpu_registers.AC = dataBus;
+	reg.AC = dataBus;
 }
 void CPU::LDX()
 {
 	set_sign(dataBus);
 	set_zero(dataBus);
-	cpu_registers.X = dataBus;
+	reg.X = dataBus;
 }
 
 void CPU::LDY()
 {
 	set_sign(dataBus);
 	set_zero(dataBus);
-	cpu_registers.Y = dataBus;
+	reg.Y = dataBus;
 }
 
 void CPU::LSR()
@@ -962,9 +968,9 @@ void CPU::LSR()
 
 void CPU::ORA()
 {
-	cpu_registers.AC |= dataBus;
-	set_sign(cpu_registers.AC);
-	set_zero(cpu_registers.AC);
+	reg.AC |= dataBus;
+	set_sign(reg.AC);
+	set_zero(reg.AC);
 }
 
 void CPU::PHA()
@@ -972,10 +978,10 @@ void CPU::PHA()
 	switch(cycleCount)
 	{
 		case 1:
-			read(cpu_registers.PC); //Dummy read
+			read(reg.PC); //Dummy read
 			break;
 		case 2: 
-			push(cpu_registers.AC);
+			push(reg.AC);
 			break;
 		case 3:
 			readOPCode();
@@ -987,11 +993,11 @@ void CPU::PHP()
 	switch(cycleCount)
 	{
 		case 1:
-			read(cpu_registers.PC); //Dummy read
+			read(reg.PC); //Dummy read
 			break;
 		case 2:
 		{
-			uint8_t temp = cpu_registers.SR; //Set bits 5 and 4 to distinguish how value was pushed
+			uint8_t temp = reg.SR; //Set bits 5 and 4 to distinguish how value was pushed
 			temp |= 0x1 << 5;
 			temp |= 0x1 << 4;
 			push(temp);
@@ -1007,15 +1013,15 @@ void CPU::PLA()
 	switch(cycleCount)
 	{
 		case 1:
-			read(cpu_registers.PC); //Dummy read
+			read(reg.PC); //Dummy read
 			break;
 		case 2:
-			read(0x0100 + cpu_registers.SP); //Dummy read
+			read(0x0100 + reg.SP); //Dummy read
 			break;
 		case 3:
-			cpu_registers.AC = pop();
-			set_sign(cpu_registers.AC);
-			set_zero(cpu_registers.AC);
+			reg.AC = pop();
+			set_sign(reg.AC);
+			set_zero(reg.AC);
 			break;
 		case 4:
 			readOPCode();
@@ -1027,17 +1033,17 @@ void CPU::PLP()
 	switch(cycleCount)
 	{
 		case 1:
-			read(cpu_registers.PC); //Dummy read
+			read(reg.PC); //Dummy read
 			break;
 		case 2:
-			read(0x0100 + cpu_registers.SP); //Dummy read
+			read(0x0100 + reg.SP); //Dummy read
 			break;
 		case 3:
 		{
 			uint8_t temp = pop();
 			temp |= 0x1 << 5;
 			temp &= ~(0x1 << 4);
-			cpu_registers.SR = temp;
+			reg.SR = temp;
 			break;
 		}
 		case 4:
@@ -1074,17 +1080,17 @@ void CPU::RTI()
 	switch(cycleCount)
 	{
 		case 1:
-			read(cpu_registers.PC); //Dummy read
+			read(reg.PC); //Dummy read
 			break;
 		case 2:
-			read(0x0100 + cpu_registers.SP); //Dummy read
+			read(0x0100 + reg.SP); //Dummy read
 			break;
 		case 3:
 		{
 			uint8_t temp = pop();
 			temp |= 0x1 << 5;
 			temp &= ~(0x1 << 4);
-			cpu_registers.SR = temp;
+			reg.SR = temp;
 			break;
 		}
 		case 4:
@@ -1094,7 +1100,7 @@ void CPU::RTI()
 			addressBus = (pop() << 8) + addressBus;
 			break;
 		case 6:
-			cpu_registers.PC = addressBus;
+			reg.PC = addressBus;
 			readOPCode();
 	}
 }
@@ -1104,10 +1110,10 @@ void CPU::RTS()
 	switch(cycleCount)
 	{
 		case 1:
-			read(cpu_registers.PC); //Dummy read
+			read(reg.PC); //Dummy read
 			break;
 		case 2:
-			read(0x0100 + cpu_registers.SP); //Dummy read
+			read(0x0100 + reg.SP); //Dummy read
 			break;
 		case 3:
 			addressBus = pop();
@@ -1119,59 +1125,59 @@ void CPU::RTS()
 			read(addressBus); //Dummy read
 			break;
 		case 6:
-			cpu_registers.PC = addressBus + 1;
+			reg.PC = addressBus + 1;
 			readOPCode();
 	}
 }
 
 void CPU::SBC()
 {
-	uint16_t temp = cpu_registers.AC - dataBus - (if_carry() ? 0 : 1);
+	uint16_t temp = reg.AC - dataBus - (if_carry() ? 0 : 1);
 	set_sign(temp);
 	set_zero(temp & 0xFF);
-	set_overflow(((cpu_registers.AC ^ temp) & 0x80) && ((cpu_registers.AC ^ dataBus) & 0x80));
+	set_overflow(((reg.AC ^ temp) & 0x80) && ((reg.AC ^ dataBus) & 0x80));
 	set_carry(temp < 0x100);
-	cpu_registers.AC = (temp & 0xFF);
+	reg.AC = (temp & 0xFF);
 }
 
 void CPU::TAX()
 {
-	cpu_registers.X = cpu_registers.AC;
-	set_sign(cpu_registers.X);
-	set_zero(cpu_registers.X);
+	reg.X = reg.AC;
+	set_sign(reg.X);
+	set_zero(reg.X);
 }
 
 void CPU::TAY()
 {
-	cpu_registers.Y = cpu_registers.AC;
-	set_sign(cpu_registers.Y);
-	set_zero(cpu_registers.Y);
+	reg.Y = reg.AC;
+	set_sign(reg.Y);
+	set_zero(reg.Y);
 }
 
 void CPU::TSX()
 {
-	cpu_registers.X = cpu_registers.SP;
-	set_sign(cpu_registers.X);
-	set_zero(cpu_registers.X);
+	reg.X = reg.SP;
+	set_sign(reg.X);
+	set_zero(reg.X);
 }
 
 void CPU::TXA()
 {
-	cpu_registers.AC = cpu_registers.X;
-	set_sign(cpu_registers.AC);
-	set_zero(cpu_registers.AC);
+	reg.AC = reg.X;
+	set_sign(reg.AC);
+	set_zero(reg.AC);
 }
 
 void CPU::TXS()
 {
-	cpu_registers.SP = cpu_registers.X;
+	reg.SP = reg.X;
 }
 
 void CPU::TYA()
 {
-	cpu_registers.AC = cpu_registers.Y;
-	set_sign(cpu_registers.AC);
-	set_zero(cpu_registers.AC);
+	reg.AC = reg.Y;
+	set_sign(reg.AC);
+	set_zero(reg.AC);
 }
 
 void CPU::decodeOP()
@@ -1189,7 +1195,7 @@ void CPU::decodeOP()
 			break;
 		case 0x75: //Zero Page,X ADC
 			executeInstruction = std::bind(&CPU::ADC, this);
-			tickFunction = std::bind(&CPU::zeroPageIndexed, this, executeInstruction, cpu_registers.X);
+			tickFunction = std::bind(&CPU::zeroPageIndexed, this, executeInstruction, reg.X);
 			break;
 		case 0x6D: //Absolute ADC
 			executeInstruction = std::bind(&CPU::ADC, this);
@@ -1197,11 +1203,11 @@ void CPU::decodeOP()
 			break;
 		case 0x7D: //Absolute,X ADC
 			executeInstruction = std::bind(&CPU::ADC, this);
-			tickFunction = std::bind(&CPU::absoluteIndexed, this, executeInstruction, cpu_registers.X);
+			tickFunction = std::bind(&CPU::absoluteIndexed, this, executeInstruction, reg.X);
 			break;
 		case 0x79: //Absolute,Y ADC
 			executeInstruction = std::bind(&CPU::ADC, this);
-			tickFunction = std::bind(&CPU::absoluteIndexed, this, executeInstruction, cpu_registers.Y);
+			tickFunction = std::bind(&CPU::absoluteIndexed, this, executeInstruction, reg.Y);
 			break;
 		case 0x61: //Indirect,X ADC
 			executeInstruction = std::bind(&CPU::ADC, this);
@@ -1221,7 +1227,7 @@ void CPU::decodeOP()
 			break;
 		case 0x35: //Zero Page,X AND
 			executeInstruction = std::bind(&CPU::AND, this);
-			tickFunction = std::bind(&CPU::zeroPageIndexed, this, executeInstruction, cpu_registers.X);
+			tickFunction = std::bind(&CPU::zeroPageIndexed, this, executeInstruction, reg.X);
 			break;
 		case 0x2D: //Absolute AND
 			executeInstruction = std::bind(&CPU::AND, this);
@@ -1229,11 +1235,11 @@ void CPU::decodeOP()
 			break;
 		case 0x3D: //Absolute,X AND
 			executeInstruction = std::bind(&CPU::AND, this);
-			tickFunction = std::bind(&CPU::absoluteIndexed, this, executeInstruction, cpu_registers.X);
+			tickFunction = std::bind(&CPU::absoluteIndexed, this, executeInstruction, reg.X);
 			break;
 		case 0x39: //Absolute,Y AND
 			executeInstruction = std::bind(&CPU::AND, this);
-			tickFunction = std::bind(&CPU::absoluteIndexed, this, executeInstruction, cpu_registers.Y);
+			tickFunction = std::bind(&CPU::absoluteIndexed, this, executeInstruction, reg.Y);
 			break;
 		case 0x21: //Indirect,X AND
 			executeInstruction = std::bind(&CPU::AND, this);
@@ -1315,59 +1321,59 @@ void CPU::decodeOP()
 			tickFunction = std::bind(&CPU::implied, this, executeInstruction);
 			break;
 		case 0xC9: //Immediate CMP
-			executeInstruction = std::bind(&CPU::CMP, this, cpu_registers.AC);
+			executeInstruction = std::bind(&CPU::CMP, this, reg.AC);
 			tickFunction = std::bind(&CPU::immediate, this, executeInstruction);
 			break;
 		case 0xC5: //Zero Page CMP
-			executeInstruction = std::bind(&CPU::CMP, this, cpu_registers.AC);
+			executeInstruction = std::bind(&CPU::CMP, this, reg.AC);
 			tickFunction = std::bind(&CPU::zeroPage, this, executeInstruction);
 			break;
 		case 0xD5: //Zero Page,X CMP
-			executeInstruction = std::bind(&CPU::CMP, this, cpu_registers.AC);
-			tickFunction = std::bind(&CPU::zeroPageIndexed, this, executeInstruction, cpu_registers.X);
+			executeInstruction = std::bind(&CPU::CMP, this, reg.AC);
+			tickFunction = std::bind(&CPU::zeroPageIndexed, this, executeInstruction, reg.X);
 			break;
 		case 0xCD: //Absolute CMP
-			executeInstruction = std::bind(&CPU::CMP, this, cpu_registers.AC);
+			executeInstruction = std::bind(&CPU::CMP, this, reg.AC);
 			tickFunction = std::bind(&CPU::absolute, this, executeInstruction);
 			break;
 		case 0xDD: //Absolute,X CMP
-			executeInstruction = std::bind(&CPU::CMP, this, cpu_registers.AC);
-			tickFunction = std::bind(&CPU::absoluteIndexed, this, executeInstruction, cpu_registers.X);
+			executeInstruction = std::bind(&CPU::CMP, this, reg.AC);
+			tickFunction = std::bind(&CPU::absoluteIndexed, this, executeInstruction, reg.X);
 			break;
 		case 0xD9: //Absolute,Y CMP
-			executeInstruction = std::bind(&CPU::CMP, this, cpu_registers.AC);
-			tickFunction = std::bind(&CPU::absoluteIndexed, this, executeInstruction, cpu_registers.Y);
+			executeInstruction = std::bind(&CPU::CMP, this, reg.AC);
+			tickFunction = std::bind(&CPU::absoluteIndexed, this, executeInstruction, reg.Y);
 			break;
 		case 0xC1: //Indirect,X CMP
-			executeInstruction = std::bind(&CPU::CMP, this, cpu_registers.AC);
+			executeInstruction = std::bind(&CPU::CMP, this, reg.AC);
 			tickFunction = std::bind(&CPU::indirectX, this, executeInstruction);
 			break;
 		case 0xD1: //Indirect,Y CMP
-			executeInstruction = std::bind(&CPU::CMP, this, cpu_registers.AC);
+			executeInstruction = std::bind(&CPU::CMP, this, reg.AC);
 			tickFunction = std::bind(&CPU::indirectY, this, executeInstruction);
 			break;
 		case 0xE0: //Immediate CPX
-			executeInstruction = std::bind(&CPU::CMP, this, cpu_registers.X);
+			executeInstruction = std::bind(&CPU::CMP, this, reg.X);
 			tickFunction = std::bind(&CPU::immediate, this, executeInstruction);
 			break;
 		case 0xE4: //Zero Page CPX
-			executeInstruction = std::bind(&CPU::CMP, this, cpu_registers.X);
+			executeInstruction = std::bind(&CPU::CMP, this, reg.X);
 			tickFunction = std::bind(&CPU::zeroPage, this, executeInstruction);
 			break;
 		case 0xEC: //Absolute CPX
-			executeInstruction = std::bind(&CPU::CMP, this, cpu_registers.X);
+			executeInstruction = std::bind(&CPU::CMP, this, reg.X);
 			tickFunction = std::bind(&CPU::absolute, this, executeInstruction);
 			break;
 		case 0xC0: //Immediate CPY
-			executeInstruction = std::bind(&CPU::CMP, this, cpu_registers.Y);
+			executeInstruction = std::bind(&CPU::CMP, this, reg.Y);
 			tickFunction = std::bind(&CPU::immediate, this, executeInstruction);
 			break;
 		case 0xC4: //Zero Page CPY
-			executeInstruction = std::bind(&CPU::CMP, this, cpu_registers.Y);
+			executeInstruction = std::bind(&CPU::CMP, this, reg.Y);
 			tickFunction = std::bind(&CPU::zeroPage, this, executeInstruction);
 			break;
 		case 0xCC: //Absolute CPY
-			executeInstruction = std::bind(&CPU::CMP, this, cpu_registers.Y);
+			executeInstruction = std::bind(&CPU::CMP, this, reg.Y);
 			tickFunction = std::bind(&CPU::absolute, this, executeInstruction);
 			break;
 		case 0xC6: //Zero Page DEC
@@ -1404,7 +1410,7 @@ void CPU::decodeOP()
 			break;
 		case 0x55: //Zero Page,X EOR
 			executeInstruction = std::bind(&CPU::EOR, this);
-			tickFunction = std::bind(&CPU::zeroPageIndexed, this, executeInstruction, cpu_registers.X);
+			tickFunction = std::bind(&CPU::zeroPageIndexed, this, executeInstruction, reg.X);
 			break;
 		case 0x4D: //Absolute EOR
 			executeInstruction = std::bind(&CPU::EOR, this);
@@ -1412,11 +1418,11 @@ void CPU::decodeOP()
 			break;
 		case 0x5D: //Absolute,X EOR
 			executeInstruction = std::bind(&CPU::EOR, this);
-			tickFunction = std::bind(&CPU::absoluteIndexed, this, executeInstruction, cpu_registers.X);
+			tickFunction = std::bind(&CPU::absoluteIndexed, this, executeInstruction, reg.X);
 			break;
 		case 0x59: //Absolute,Y EOR
 			executeInstruction = std::bind(&CPU::EOR, this);
-			tickFunction = std::bind(&CPU::absoluteIndexed, this, executeInstruction, cpu_registers.Y);
+			tickFunction = std::bind(&CPU::absoluteIndexed, this, executeInstruction, reg.Y);
 			break;
 		case 0x41: //Indirect,X EOR
 			executeInstruction = std::bind(&CPU::EOR, this);
@@ -1469,7 +1475,7 @@ void CPU::decodeOP()
 			break;
 		case 0xB5: //Zero Page,X LDA
 			executeInstruction = std::bind(&CPU::LDA, this);
-			tickFunction = std::bind(&CPU::zeroPageIndexed, this, executeInstruction, cpu_registers.X);
+			tickFunction = std::bind(&CPU::zeroPageIndexed, this, executeInstruction, reg.X);
 			break;
 		case 0xAD: //Absolute LDA
 			executeInstruction = std::bind(&CPU::LDA, this);
@@ -1477,11 +1483,11 @@ void CPU::decodeOP()
 			break;
 		case 0xBD: //Absolute,X LDA
 			executeInstruction = std::bind(&CPU::LDA, this);
-			tickFunction = std::bind(&CPU::absoluteIndexed, this, executeInstruction, cpu_registers.X);
+			tickFunction = std::bind(&CPU::absoluteIndexed, this, executeInstruction, reg.X);
 			break;
 		case 0xB9: //Absolute,Y LDA
 			executeInstruction = std::bind(&CPU::LDA, this);
-			tickFunction = std::bind(&CPU::absoluteIndexed, this, executeInstruction, cpu_registers.Y);
+			tickFunction = std::bind(&CPU::absoluteIndexed, this, executeInstruction, reg.Y);
 			break;
 		case 0xA1: //Indirect,X LDA
 			executeInstruction = std::bind(&CPU::LDA, this);
@@ -1501,7 +1507,7 @@ void CPU::decodeOP()
 			break;
 		case 0xB6: //Zero Page,Y LDX
 			executeInstruction = std::bind(&CPU::LDX, this);
-			tickFunction = std::bind(&CPU::zeroPageIndexed, this, executeInstruction, cpu_registers.Y);
+			tickFunction = std::bind(&CPU::zeroPageIndexed, this, executeInstruction, reg.Y);
 			break;
 		case 0xAE: //Absolute LDX
 			executeInstruction = std::bind(&CPU::LDX, this);
@@ -1509,7 +1515,7 @@ void CPU::decodeOP()
 			break;
 		case 0xBE: //Absolute,Y LDX
 			executeInstruction = std::bind(&CPU::LDX, this);
-			tickFunction = std::bind(&CPU::absoluteIndexed, this, executeInstruction, cpu_registers.Y);
+			tickFunction = std::bind(&CPU::absoluteIndexed, this, executeInstruction, reg.Y);
 			break;
 		case 0xA0: //Immediate LDY
 			executeInstruction = std::bind(&CPU::LDY, this);
@@ -1521,7 +1527,7 @@ void CPU::decodeOP()
 			break;
 		case 0xB4: //Zero Page,X LDY
 			executeInstruction = std::bind(&CPU::LDY, this);
-			tickFunction = std::bind(&CPU::zeroPageIndexed, this, executeInstruction, cpu_registers.X);
+			tickFunction = std::bind(&CPU::zeroPageIndexed, this, executeInstruction, reg.X);
 			break;
 		case 0xAC: //Absolute LDY
 			executeInstruction = std::bind(&CPU::LDY, this);
@@ -1529,7 +1535,7 @@ void CPU::decodeOP()
 			break;
 		case 0xBC: //Absolute,X LDY
 			executeInstruction = std::bind(&CPU::LDY, this);
-			tickFunction = std::bind(&CPU::absoluteIndexed, this, executeInstruction, cpu_registers.X);
+			tickFunction = std::bind(&CPU::absoluteIndexed, this, executeInstruction, reg.X);
 			break;
 		case 0x4A: //Accumulator LSR
 			executeInstruction = std::bind(&CPU::LSR, this);
@@ -1565,7 +1571,7 @@ void CPU::decodeOP()
 			break;
 		case 0x15: //Zero Page,X ORA
 			executeInstruction = std::bind(&CPU::ORA, this);
-			tickFunction = std::bind(&CPU::zeroPageIndexed, this, executeInstruction, cpu_registers.X);
+			tickFunction = std::bind(&CPU::zeroPageIndexed, this, executeInstruction, reg.X);
 			break;
 		case 0x0D: //Absolute ORA
 			executeInstruction = std::bind(&CPU::ORA, this);
@@ -1573,11 +1579,11 @@ void CPU::decodeOP()
 			break;
 		case 0x1D: //Absolute,X ORA
 			executeInstruction = std::bind(&CPU::ORA, this);
-			tickFunction = std::bind(&CPU::absoluteIndexed, this, executeInstruction, cpu_registers.X);
+			tickFunction = std::bind(&CPU::absoluteIndexed, this, executeInstruction, reg.X);
 			break;
 		case 0x19: //Absolute,Y ORA
 			executeInstruction = std::bind(&CPU::ORA, this);
-			tickFunction = std::bind(&CPU::absoluteIndexed, this, executeInstruction, cpu_registers.Y);
+			tickFunction = std::bind(&CPU::absoluteIndexed, this, executeInstruction, reg.Y);
 			break;
 		case 0x01: //Indirect,X ORA
 			executeInstruction = std::bind(&CPU::ORA, this);
@@ -1655,7 +1661,7 @@ void CPU::decodeOP()
 			break;
 		case 0xF5: //Zero Page,X SBC
 			executeInstruction = std::bind(&CPU::SBC, this);
-			tickFunction = std::bind(&CPU::zeroPageIndexed, this, executeInstruction, cpu_registers.X);
+			tickFunction = std::bind(&CPU::zeroPageIndexed, this, executeInstruction, reg.X);
 			break;
 		case 0xED: //Absolute SBC
 			executeInstruction = std::bind(&CPU::SBC, this);
@@ -1663,11 +1669,11 @@ void CPU::decodeOP()
 			break;
 		case 0xFD: //Absolute,X SBC
 			executeInstruction = std::bind(&CPU::SBC, this);
-			tickFunction = std::bind(&CPU::absoluteIndexed, this, executeInstruction, cpu_registers.X);
+			tickFunction = std::bind(&CPU::absoluteIndexed, this, executeInstruction, reg.X);
 			break;
 		case 0xF9: //Absolute,Y SBC
 			executeInstruction = std::bind(&CPU::SBC, this);
-			tickFunction = std::bind(&CPU::absoluteIndexed, this, executeInstruction, cpu_registers.Y);
+			tickFunction = std::bind(&CPU::absoluteIndexed, this, executeInstruction, reg.Y);
 			break;
 		case 0xE1: //Indirect,X SBC
 			executeInstruction = std::bind(&CPU::SBC, this);
@@ -1690,43 +1696,43 @@ void CPU::decodeOP()
 			tickFunction = std::bind(&CPU::implied, this, executeInstruction);
 			break;
 		case 0x85: //Zero Page STA
-			tickFunction = std::bind(&CPU::zeroPage_Store, this, cpu_registers.AC);
+			tickFunction = std::bind(&CPU::zeroPage_Store, this, reg.AC);
 			break;
 		case 0x95: //Zero Page,X STA
-			tickFunction = std::bind(&CPU::zeroPageIndexed_Store, this, cpu_registers.AC, cpu_registers.X);
+			tickFunction = std::bind(&CPU::zeroPageIndexed_Store, this, reg.AC, reg.X);
 			break;
 		case 0x8D: //Absolute STA
-			tickFunction = std::bind(&CPU::absolute_Store, this, cpu_registers.AC);
+			tickFunction = std::bind(&CPU::absolute_Store, this, reg.AC);
 			break;
 		case 0x9D: //Absolute,X STA
-			tickFunction = std::bind(&CPU::absoluteIndexed_Store, this, cpu_registers.AC, cpu_registers.X);
+			tickFunction = std::bind(&CPU::absoluteIndexed_Store, this, reg.AC, reg.X);
 			break;
 		case 0x99: //Absolute,Y STA
-			tickFunction = std::bind(&CPU::absoluteIndexed_Store, this, cpu_registers.AC, cpu_registers.Y);
+			tickFunction = std::bind(&CPU::absoluteIndexed_Store, this, reg.AC, reg.Y);
 			break;
 		case 0x81: //Indirect,X STA
-			tickFunction = std::bind(&CPU::indirectX_Store, this, cpu_registers.AC);
+			tickFunction = std::bind(&CPU::indirectX_Store, this, reg.AC);
 			break;
 		case 0x91: //Indirect,Y STA
-			tickFunction = std::bind(&CPU::indirectY_Store, this, cpu_registers.AC);
+			tickFunction = std::bind(&CPU::indirectY_Store, this, reg.AC);
 			break;
 		case 0x86: //Zero Page STX
-			tickFunction = std::bind(&CPU::zeroPage_Store, this, cpu_registers.X);
+			tickFunction = std::bind(&CPU::zeroPage_Store, this, reg.X);
 			break;
 		case 0x96: //Zero Page,Y STX
-			tickFunction = std::bind(&CPU::zeroPageIndexed_Store, this, cpu_registers.X, cpu_registers.Y);
+			tickFunction = std::bind(&CPU::zeroPageIndexed_Store, this, reg.X, reg.Y);
 			break;
 		case 0x8E: //Absolute STX
-			tickFunction = std::bind(&CPU::absolute_Store, this, cpu_registers.X);
+			tickFunction = std::bind(&CPU::absolute_Store, this, reg.X);
 			break;
 		case 0x84: //Zero Page STY
-			tickFunction = std::bind(&CPU::zeroPage_Store, this, cpu_registers.Y);
+			tickFunction = std::bind(&CPU::zeroPage_Store, this, reg.Y);
 			break;
 		case 0x94: //Zero Page,X STY
-			tickFunction = std::bind(&CPU::zeroPageIndexed_Store, this, cpu_registers.Y, cpu_registers.X);
+			tickFunction = std::bind(&CPU::zeroPageIndexed_Store, this, reg.Y, reg.X);
 			break;
 		case 0x8C: //Absolute STY
-			tickFunction = std::bind(&CPU::absolute_Store, this, cpu_registers.Y);
+			tickFunction = std::bind(&CPU::absolute_Store, this, reg.Y);
 			break;
 		case 0xAA: //Implied TAX
 			executeInstruction = std::bind(&CPU::TAX, this);
@@ -1753,7 +1759,7 @@ void CPU::decodeOP()
 			tickFunction = std::bind(&CPU::implied, this, executeInstruction);
 			break;
 		default:
-			throw UnkownOPCode(currentOP, cycleCount, totalCycles, cpu_registers.PC);
+			throw UnkownOPCode(currentOP, cycleCount, totalCycles, reg.PC);
 	}
 	tickFunction();
 }
@@ -1762,5 +1768,5 @@ void CPU::debug()
 {
 	if(totalCycles > 0)
 		debugInfo.print(log);
-	debugInfo.setInfo(currentOP, cpu_registers, totalCycles);
+	debugInfo.setInfo(currentOP, reg, totalCycles, ppu.dot, ppu.scanline);
 }

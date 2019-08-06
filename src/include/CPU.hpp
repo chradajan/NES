@@ -18,12 +18,9 @@ public:
 	void tick();
 	~CPU();
 
-	//Debug
-	void debug();
-
 private:
-	Cartridge* cart;
-	CPU_Registers cpu_registers;
+	Cartridge& cart;
+	CPU_Registers reg;
 	PPU& ppu;
 	APU_IO_Registers& apu_io_registers;
 	uint8_t RAM[0x0800];
@@ -36,15 +33,10 @@ private:
 	uint16_t addressBus = 0x0000;
 	std::function<void()> tickFunction;
 	int totalCycles; //Used to determine when to allow writes to PPU registers
-	
-	//Debug
-	DebugInfo debugInfo;
-	bool debugEnabled;
-	std::fstream& log;
 
 	//DMA Transfer
 	bool dmaTransfer = false;
-	int dmaTransferCycles;
+	int dmaTransferCycles, cycleCountReturn = 0;
 	uint16_t dmaPage;
 	uint8_t dmaLowByte;
 	uint8_t dmaData;
@@ -144,6 +136,12 @@ private:
 	
 	//Execution
 	void decodeOP();
+
+	//Debug
+	void debug();
+	DebugInfo debugInfo;
+	bool debugEnabled;
+	std::fstream& log;
 };
 
 #endif

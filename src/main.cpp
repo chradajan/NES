@@ -15,8 +15,9 @@ int main(int argc, char* argv[])
 	std::fstream cpuLog("../logs/log.txt", std::ios::out);
 	char* frameBuffer = new char[SCREEN_WIDTH * SCREEN_HEIGHT * channels];
 	bool renderFrame = false;
-	//NES nes("../roms/DonkeyKong.nes", cpuLog, frameBuffer, renderFrame);
-	NES nes("C:/Users/Chris/Desktop/NES/roms/DonkeyKong.nes", cpuLog, frameBuffer, renderFrame);
+	int frameCounter = 0;
+	//NES nes("../roms/DonkeyKong.nes", cpuLog, frameBuffer, renderFrame, frameCounter);
+	NES nes("C:/Users/Chris/Desktop/NES/roms/DonkeyKong.nes", cpuLog, frameBuffer, renderFrame, frameCounter);
 
 	SDL_Window* window = nullptr;
 	SDL_Surface* screenSurface = nullptr;
@@ -25,8 +26,9 @@ int main(int argc, char* argv[])
 
 	window = SDL_CreateWindow("NES", SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, SCREEN_WIDTH, SCREEN_HEIGHT, SDL_WINDOW_SHOWN);
 
-	while(true)
+	while(frameCounter < 10)
 	//for(int i = 0; i < 1000000; ++i)
+	//while(true)
 	{
 		if(!renderFrame)
 			nes.tick();
@@ -39,6 +41,9 @@ int main(int argc, char* argv[])
 			renderFrame = false;
 		}
 	}
+
+	SDL_Delay(1000);
+
 
 	SDL_DestroyWindow(window);
 	SDL_Quit();

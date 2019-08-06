@@ -9,13 +9,13 @@
 class PPU
 {
 public:
-    PPU(Cartridge* cart, RGB* colors, char* frameBuffer, bool& frameReady);
+    PPU(Cartridge* cart, RGB* colors, char* frameBuffer, bool& frameReady, int& FC);
     void tick();
     uint8_t readMemMappedReg(uint16_t address);
     void writeMemMappedReg(uint16_t address, uint8_t data);
     bool NMI();
     ~PPU();
-private:
+
     struct PPU_Registers
     {
         uint8_t PPUCTRL;
@@ -30,8 +30,25 @@ private:
         bool w;
     };
 
-    //Memory
     PPU_Registers reg;
+    int scanline, dot;
+private:
+    // struct PPU_Registers
+    // {
+    //     uint8_t PPUCTRL;
+    //     uint8_t PPUMASK;
+    //     uint8_t PPUSTATUS;
+    //     uint8_t OAMADDR;
+    //     uint8_t PPUDATA_Buffer;
+
+    //     uint16_t v;
+    //     uint16_t t;
+    //     uint8_t x;
+    //     bool w;
+    // };
+
+    //Memory
+    //PPU_Registers reg;
     uint8_t VRAM[0x800];
     uint8_t OAM[0x100];
     uint8_t OAM_Secondary[0x20];
@@ -44,8 +61,8 @@ private:
     bool& frameReady;
 
     //State
-    bool nmi, oddFrame;
-    int scanline, dot;
+    bool oddFrame;
+    // int scanline, dot;
     uint8_t NT_Byte, AT_Byte;
 
     //Read/write
@@ -54,8 +71,11 @@ private:
     uint16_t mirrored_NT_Addr(uint16_t address);
     uint16_t mirrored_Palette_Addr(uint16_t address);
 
-    //Register checks
+    //NMI
+    bool nmi;
     void checkNMI();
+
+    //Register checks
     bool renderingEnabled();
 
     //Scanline operations
@@ -77,6 +97,9 @@ private:
     int frameBufferPointer;
     void getPixel();
     void renderPixel(uint8_t pixel);
+
+    //Temp
+    int& FC;
 };
 
 #endif

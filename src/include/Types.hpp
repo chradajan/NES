@@ -210,7 +210,7 @@ struct APU_IO_Registers
 
 struct DebugInfo
 {
-	void setInfo(uint8_t opcode, const CPU_Registers& cpu_reg, int cycles)
+	void setInfo(uint8_t opcode, const CPU_Registers& cpu_reg, int cycles, int ppu_dot, int ppu_scanline)
 	{
 		OPCode = opcode;
 		PC = cpu_reg.PC - 1;
@@ -222,6 +222,8 @@ struct DebugInfo
 		cycle = cycles;
 		firstByte = secondByte = 0xFFFF;
 		writeFirstByte = true;
+		dot = ppu_dot;
+		scanline = ppu_scanline;
 	}
 	void add(uint8_t data)
 	{
@@ -265,13 +267,15 @@ struct DebugInfo
 		log << "Y:" << std::setw(2) << (uint)Y << " ";
 		log << "P:" << std::setw(2) << (uint)P << " ";
 		log << "SP:" << std::setw(2) << (uint)SP << " ";
+		log << "Dot: " << std::dec << std::setw(3) << dot << " ";
+		log << "Scanline: " << std::setw(3) << scanline << " ";
 		log << "CYC:" << std::dec << cycle << std::endl;
 	}
 private:
 	bool writeFirstByte;
 	uint8_t OPCode, AC, X, Y, SP, P;
 	uint16_t PC, firstByte, secondByte;
-	int cycle;
+	int cycle, dot, scanline;
 };
 
 #endif
