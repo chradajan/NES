@@ -6,6 +6,8 @@
 #include "Cartridge.hpp"
 #include "Types.hpp"
 
+class CPU;
+
 class PPU
 {
 public:
@@ -15,6 +17,9 @@ public:
     void writeMemMappedReg(uint16_t address, uint8_t data);
     bool NMI();
     ~PPU();
+
+private:
+    friend class CPU;
 
     struct PPU_Registers
     {
@@ -30,28 +35,27 @@ public:
         bool w;
     };
 
-    PPU_Registers reg;
-    int scanline, dot;
-private:
-    // struct PPU_Registers
-    // {
-    //     uint8_t PPUCTRL;
-    //     uint8_t PPUMASK;
-    //     uint8_t PPUSTATUS;
-    //     uint8_t OAMADDR;
-    //     uint8_t PPUDATA_Buffer;
+    struct Sprite
+    {
+        uint8_t Y;
+        uint8_t Tile;
+        uint8_t Attributes;
+        uint8_t X;
+        uint8_t PT_Low, PT_High;
 
-    //     uint16_t v;
-    //     uint16_t t;
-    //     uint8_t x;
-    //     bool w;
-    // };
+        void clear()
+        {
+            Y = Tile = Attributes = X = 0xFF;
+            PT_Low = PT_High = 0x00;
+        }
+    };
 
     //Memory
-    //PPU_Registers reg;
+    PPU_Registers reg;
     uint8_t VRAM[0x800];
     uint8_t OAM[0x100];
-    uint8_t OAM_Secondary[0x20];
+    //uint8_t OAM_Secondary[0x20];
+    Sprite OAM_Secondary[8];
     uint8_t paletteRAM[0x20];
 
     //Parameters
@@ -62,7 +66,7 @@ private:
 
     //State
     bool oddFrame;
-    // int scanline, dot;
+    int scanline, dot;
     uint8_t NT_Byte, AT_Byte;
 
     //Read/write
@@ -89,6 +93,14 @@ private:
     void shiftRegisters();
     void backgroundFetch();
     void setAttributeLatch();
+
+    //Sprites
+    int N, M, secondaryLoc, spriteCount;
+    uint8_t OAM_Buffer;
+    void spriteEval();
+    void spriteEvalWrite();
+    void spriteOverflowEval();
+    void spriteFetch();
 
     //Rendering
     bool AT_Latch_Low, AT_Latch_High;

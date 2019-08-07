@@ -7,8 +7,6 @@ PPU::PPU(Cartridge* cart, RGB* colors, char* frameBuffer, bool& frameReady, int&
         VRAM[i] = 0x00;
     for(int i = 0; i < 0x100; ++i)
         OAM[i] = 0x00;
-    for(int i = 0; i < 0x20; ++i)
-        OAM_Secondary[i] = 0x00;
     reg.PPUCTRL = reg.PPUMASK = reg.PPUSTATUS = reg.OAMADDR = reg.PPUDATA_Buffer = reg.x = 0x00;
     reg.v = reg.t = 0x0000;
     reg.w = false;
@@ -262,7 +260,7 @@ void PPU::visibleScanline()
     else if(dot < 257)
     {
         getPixel();
-        //spriteEval();
+        spriteEval();
         backgroundFetch();
     }
     else if(dot == 257)
@@ -405,6 +403,93 @@ void PPU::setAttributeLatch()
         AT_Latch_Low = AT_Byte & 0x40;
         AT_Latch_High = AT_Byte & 0x80;
     }   
+}
+
+void PPU::spriteEval()
+{
+    if(dot < 8)
+        OAM_Secondary[dot - 1].clear();
+    else if(dot < 65)
+        return;
+    else if(dot == 65)
+    {
+        N = reg.OAMADDR;
+        M = 0;
+        secondaryLoc = 0;
+        spriteCount = 0;
+        OAM_Buffer = OAM[N + M];
+    }
+    else if(dot < 257 && dot % 2 == 1)
+        OAM_Buffer = OAM[N + M];
+    else if(dot < 257 && dot % 2 == 0)
+        spriteEvalWrite();
+    else if(dot < 321)
+        spriteFetch();
+}
+
+void PPU::spriteEvalWrite()
+{
+    if(N + M >= 256)
+        return;
+    else if(spriteCount < 8)
+    {
+        switch(M)
+        {
+            case 0:
+                OAM_Secondary[secondaryLoc].Y = OAM_Buffer;
+                if(OAM_Buffer = scanline)
+                    ++M;
+                else
+                    N += 4;
+                break;
+            case 1:
+                OAM_Secondary[secondaryLoc].Tile = OAM_Buffer;
+                ++M;
+                break;
+            case 2:
+                OAM_Secondary[secondaryLoc].Attributes = OAM_Buffer;
+                ++M;
+                break;
+            case 3:
+                OAM_Secondary[secondaryLoc].X = OAM_Buffer;
+                ++spriteCount;
+                ++secondaryLoc;
+                N += 4;
+                M = 0;
+                break;                
+        }
+    }
+    else
+        spriteOverflowEval();
+}
+
+void PPU::spriteOverflowEval()
+{
+    if((reg.PPUSTATUS & 0x40)) //Check sprite overflow flag or if all sprites have been evaluated
+		return;
+	else if(OAM[N + M] == scanline)
+		reg.PPUSTATUS |= 0x40; //Set sprite overflow flag
+	else
+	{
+		N += 4;
+		M = (M == 3 ? 0 : M + 1);
+	}
+}
+
+void PPU::spriteFetch()
+{
+    int cycle = (dot - 1) % 8;
+    int spriteLoc = (dot - 257) / 8;
+    switch(cycle)
+    {
+        case 1:
+            read(0x2000 | (reg.v & 0x0FFF)); //Dummy NT read
+            break;
+        case 3:
+            read(0x23C0 | (reg.v & 0x0C00) | ((reg.v >> 4) & 0x38) | ((reg.v >> 2) & 0x07)); //Dummy AT read
+        case 5:
+        PT_Addr = 0x0000 | ((reg.PPUCTRL & 0x10) << 8) | (NT_Byte << 4) | ((reg.v & 0x7000) >> 12);
+    }
 }
 
 void PPU::getPixel()
