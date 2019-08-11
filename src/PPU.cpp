@@ -265,12 +265,11 @@ void PPU::visibleScanline()
     }
     else if(dot == 257)
     {
-        //spriteFetch();
+        spriteFetch();
         setHoriV();
     }
     else if(dot < 321)
-        //spriteFetch();
-        ;
+        spriteFetch();
     else if(dot < 337)
         backgroundFetch();
     else
@@ -359,6 +358,8 @@ void PPU::backgroundFetch()
             break;
         case 3:
             AT_Byte = read(0x23C0 | (reg.v & 0x0C00) | ((reg.v >> 4) & 0x38) | ((reg.v >> 2) & 0x07));
+            if(FC > 5)
+                std::cout << std::hex << (uint)AT_Byte << std::endl;
             break;
         case 5:
             PT_Addr = 0x0000 | ((reg.PPUCTRL & 0x10) << 8) | (NT_Byte << 4) | ((reg.v & 0x7000) >> 12);
@@ -423,6 +424,11 @@ void PPU::spriteEval()
         OAM_Buffer = OAM[N + M];
     else if(dot < 257 && dot % 2 == 0)
         spriteEvalWrite();
+    else if(dot == 257)
+    {
+        for(int i = 0; i < 8; ++i)
+            OAM_Secondary_Current[i] = OAM_Secondary[i];
+    }
     else if(dot < 321)
         spriteFetch();
 }
@@ -436,12 +442,18 @@ void PPU::spriteEvalWrite()
         switch(M)
         {
             case 0:
+            {
                 OAM_Secondary[secondaryLoc].Y = OAM_Buffer;
-                if(OAM_Buffer = scanline)
+                int spriteOffset = scanline - OAM_Buffer;
+                if(spriteOffset < (reg.PPUCTRL & 0x20 ? 16 : 8))
+                {
+                    OAM_Secondary[secondaryLoc].offset = spriteOffset;
                     ++M;
+                }
                 else
                     N += 4;
                 break;
+            }
             case 1:
                 OAM_Secondary[secondaryLoc].Tile = OAM_Buffer;
                 ++M;
@@ -487,25 +499,95 @@ void PPU::spriteFetch()
             break;
         case 3:
             read(0x23C0 | (reg.v & 0x0C00) | ((reg.v >> 4) & 0x38) | ((reg.v >> 2) & 0x07)); //Dummy AT read
+            break;
         case 5:
-        PT_Addr = 0x0000 | ((reg.PPUCTRL & 0x10) << 8) | (NT_Byte << 4) | ((reg.v & 0x7000) >> 12);
+            if(reg.PPUCTRL & 0x20) //8 x 16
+            {
+
+            }
+            else //8 x 8
+            {
+                int offset = OAM_Secondary_Current[spriteLoc].offset;
+                if(OAM_Secondary_Current[spriteLoc].Attributes & 0x80)
+                    offset = (offset - 7) * -1;
+                PT_Addr = 0x0000 | ((reg.PPUCTRL & 0x08) << 9) | (OAM_Secondary_Current[spriteLoc].Tile << 4) | offset;
+                OAM_Secondary_Current[spriteLoc].PT_Low = read(PT_Addr);
+            }           
+            break;
+        case 7:
+            if(reg.PPUCTRL & 0x20) //8 x 16
+            {
+                
+            }
+            else
+            {
+                PT_Addr |= 0x80;
+                OAM_Secondary_Current[spriteLoc].PT_High = read(PT_Addr);
+            }            
     }
 }
 
 void PPU::getPixel()
 {
-    uint16_t BG_Pixel_Addr = 0x3F10;
+    uint16_t BG_Pixel_Addr = getBackgroundPixelAddress();
+    getSpritePixelAndRender(BG_Pixel_Addr);
+}
+
+uint16_t PPU::getBackgroundPixelAddress()
+{
+    uint16_t BG_Pixel_Addr = 0x3F00;
     uint8_t selector = 0x80 >> reg.x;
     BG_Pixel_Addr += ((AT_Shifter_High & selector) ? 8 : 0);
     BG_Pixel_Addr += ((AT_Shifter_Low & selector) ? 4 : 0);
     BG_Pixel_Addr += ((PT_Shifter_High & selector) ? 2 : 0);
     BG_Pixel_Addr += ((PT_Shifter_Low & selector) ? 1 : 0);
-    uint8_t BG_Pixel = read(BG_Pixel_Addr);
-    renderPixel(BG_Pixel);
+    return BG_Pixel_Addr;
 }
 
-void PPU::renderPixel(uint8_t pixel)
+void PPU::getSpritePixelAndRender(uint16_t BG_Pixel_Addr)
 {
+    bool spritePixelFound = false;
+    uint16_t Sprite_Pixel_Addr;
+    bool BG_Priority;
+
+    for(int i = 0; i < 8; ++i)
+    {
+        --OAM_Secondary_Current[i].X;
+        if(OAM_Secondary_Current[i].X <= 0)
+        {
+            if(spritePixelFound)
+                OAM_Secondary_Current[i].getPixel(); //Shift registers but don't use pixel
+            else
+            {
+                Sprite_Pixel_Addr = OAM_Secondary_Current[i].getPixel();
+                spritePixelFound = true;
+                BG_Priority = (OAM_Secondary_Current[i].Attributes & 0x20);
+            }
+        }
+    }
+
+    if(spritePixelFound && (Sprite_Pixel_Addr & 0x03)) //If there's a non-transparent sprite pixel
+    {
+        if(BG_Pixel_Addr & 0x03) //Non-transparent BG
+        {
+            if(BG_Priority)
+                renderPixel(BG_Pixel_Addr);
+            else
+            {
+                std::cout << (uint)Sprite_Pixel_Addr << std::endl;
+                renderPixel(Sprite_Pixel_Addr);
+            }
+        }
+        else
+            renderPixel(Sprite_Pixel_Addr);    
+    }
+    else
+        renderPixel(BG_Pixel_Addr);
+}
+
+void PPU::renderPixel(uint16_t pixelAddr)
+{
+    uint8_t pixel = read(pixelAddr);
     RGB color = colors[pixel];
     frameBuffer[frameBufferPointer++] = color.R;
     frameBuffer[frameBufferPointer++] = color.G;
@@ -521,4 +603,32 @@ void PPU::renderPixel(uint8_t pixel)
 PPU::~PPU()
 {
 
+}
+
+void PPU::Sprite::clear()
+{
+    Y = Tile = Attributes = X = 0xFF;
+    PT_Low = PT_High = 0x00;
+    offset = 0;
+}
+
+uint16_t PPU::Sprite::getPixel()
+{
+    uint16_t addr = 0x3F10;
+    addr |= (Attributes & 0x03) << 2;
+    if(Attributes & 0x40) //Flipped horizontally
+    {
+        addr |= (PT_High & 0x01) << 1;
+        addr |= (PT_Low & 0x01);
+        PT_High >>= 1;
+        PT_Low >>= 1;
+    }
+    else //Not flipped
+    {
+        addr |= (PT_High & 0x80) >> 6;
+        addr |= (PT_Low & 0x80) >> 7;
+        PT_High <<= 1;
+        PT_Low <<= 1;
+    }
+    return addr;
 }

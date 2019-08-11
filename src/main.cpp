@@ -26,9 +26,9 @@ int main(int argc, char* argv[])
 
 	window = SDL_CreateWindow("NES", SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, SCREEN_WIDTH, SCREEN_HEIGHT, SDL_WINDOW_SHOWN);
 
-	while(frameCounter < 10)
+	//while(frameCounter < 10)
 	//for(int i = 0; i < 1000000; ++i)
-	//while(true)
+	while(true)
 	{
 		if(!renderFrame)
 			nes.tick();
@@ -37,7 +37,7 @@ int main(int argc, char* argv[])
 			screenSurface = SDL_CreateRGBSurfaceFrom((void*)frameBuffer, SCREEN_WIDTH, SCREEN_HEIGHT, channels * 8, SCREEN_WIDTH * channels, 0x0000FF, 0x00FF00, 0xFF0000, 0);
 			SDL_BlitSurface(screenSurface, 0, SDL_GetWindowSurface(window), 0);
 			SDL_UpdateWindowSurface(window);
-			SDL_Delay(15);
+			//SDL_Delay(15);
 			renderFrame = false;
 		}
 	}

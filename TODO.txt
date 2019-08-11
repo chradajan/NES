@@ -5,7 +5,8 @@ CPU:
     Fix vector functions?
 
 PPU:
-    NMI
+    Sprite 0
+    Check rendering enabled
 
 APU:
     Implement this

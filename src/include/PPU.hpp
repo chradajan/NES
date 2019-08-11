@@ -42,12 +42,10 @@ private:
         uint8_t Attributes;
         uint8_t X;
         uint8_t PT_Low, PT_High;
+        int offset;
 
-        void clear()
-        {
-            Y = Tile = Attributes = X = 0xFF;
-            PT_Low = PT_High = 0x00;
-        }
+        void clear();
+        uint16_t getPixel();
     };
 
     //Memory
@@ -56,6 +54,7 @@ private:
     uint8_t OAM[0x100];
     //uint8_t OAM_Secondary[0x20];
     Sprite OAM_Secondary[8];
+    Sprite OAM_Secondary_Current[8];
     uint8_t paletteRAM[0x20];
 
     //Parameters
@@ -108,7 +107,9 @@ private:
     uint16_t PT_Addr, PT_Shifter_Low, PT_Shifter_High;
     int frameBufferPointer;
     void getPixel();
-    void renderPixel(uint8_t pixel);
+    uint16_t getBackgroundPixelAddress();
+    void getSpritePixelAndRender(uint16_t BG_Pixel);
+    void renderPixel(uint16_t pixelAddr);
 
     //Temp
     int& FC;

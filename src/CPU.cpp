@@ -23,7 +23,7 @@ CPU::CPU(Cartridge* cart, PPU& ppu, APU_IO_Registers& apu_io_reg, std::fstream& 
 
 	totalCycles = 0;
 
-	debugEnabled = true;
+	debugEnabled = false;
 
 	Reset_Vector();
 
