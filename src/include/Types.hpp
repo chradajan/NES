@@ -44,6 +44,20 @@ struct CPU_Registers
 	uint8_t SR;		//Status
 };
 
+struct PPU_Registers
+{
+	uint8_t PPUCTRL = 0;
+	uint8_t PPUMASK = 0;
+	uint8_t PPUSTATUS = 0;
+	uint8_t OAMADDR = 0;
+	uint8_t ReadBuffer = 0;
+
+	uint16_t v = 0;
+	uint16_t t = 0;
+	uint8_t x = 0;
+	bool w = false;
+};
+
 struct APU_IO_Registers
 {
 	uint8_t SQ1_VOL = 0x00;

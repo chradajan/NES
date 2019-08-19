@@ -12,7 +12,7 @@
 class NES
 {
 public:
-	NES(const char* file, std::fstream& cpuLog, char* frameBuffer, bool& renderFrame, int& FC);
+	NES(const char* file, std::fstream& cpuLog, char* frameBuffer, bool& renderFrame, int& frameCounter);
 	void tick();
 	~NES();
 

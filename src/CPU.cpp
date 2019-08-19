@@ -1768,5 +1768,6 @@ void CPU::debug()
 {
 	if(totalCycles > 0)
 		debugInfo.print(log);
-	debugInfo.setInfo(currentOP, reg, totalCycles, ppu.dot, ppu.scanline);
+	// debugInfo.setInfo(currentOP, reg, totalCycles, ppu.dot, ppu.scanline);
+	debugInfo.setInfo(currentOP, reg, totalCycles, 0, 0);
 }

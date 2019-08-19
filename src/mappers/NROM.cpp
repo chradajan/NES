@@ -34,8 +34,8 @@ uint8_t NROM::readPRG(uint16_t address) const
 
 void NROM::writePRG(uint16_t address, uint8_t data)
 {
-	(void)address; (void)data;
-	throw IllegalROMWrite("Attempted to write PRG ROM", address, data);
+	//(void)address; (void)data;
+	//throw IllegalROMWrite("Attempted to write PRG ROM", address, data);
 }
 
 uint8_t NROM::readCHR(uint16_t address) const
@@ -47,10 +47,8 @@ uint8_t NROM::readCHR(uint16_t address) const
 
 void NROM::writeCHR(uint16_t address, uint8_t data)
 {
-	(void)address; (void)data;
-	throw IllegalROMWrite("Attempted to write CHR ROM", address, data);
-	//TODO: Figure out what happens when a write happens to NROM
-	//Probably throw an exception
+	//(void)address; (void)data;
+	//throw IllegalROMWrite("Attempted to write CHR ROM", address, data);
 }
 
 bool NROM::verticalMirroring() const
