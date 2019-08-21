@@ -7,6 +7,8 @@
 #include <iostream>
 #include <iomanip>
 
+class CPU;
+
 class PPU
 {
 public:
@@ -17,6 +19,7 @@ public:
     bool NMI();
     ~PPU();
 private:
+    friend class CPU;
     PPU_Registers reg;
     uint8_t VRAM[0x800];
     uint8_t OAM[0x100];
@@ -27,8 +30,8 @@ private:
     char* frameBuffer;
 
     bool vblank = true, nmi = false;
-    int scanline = -1, dot = 0;
-    bool oddFrame = true;
+    int scanline = 0, dot = 30;
+    bool oddFrame = false;
 
     uint8_t read(uint16_t address);
     void write(uint16_t address, uint8_t data);

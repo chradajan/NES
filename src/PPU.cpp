@@ -16,6 +16,8 @@ PPU::~PPU()
 
 uint8_t PPU::readMemMappedReg(uint16_t address)
 {
+    if(address > 0x2007)
+        address = 0x2000 + (address % 0x08);
     uint8_t temp = 0x00;
     switch(address)
     {
@@ -50,6 +52,8 @@ uint8_t PPU::readMemMappedReg(uint16_t address)
 
 void PPU::writeMemMappedReg(uint16_t address, uint8_t data)
 {
+    if(address > 0x2007)
+        address = 0x2000 + (address % 0x08);
     switch(address)
     {
         case 0x2000: //PPUCTRL
@@ -120,7 +124,7 @@ void PPU::write(uint16_t address, uint8_t data)
     else if(address < 0x3F00)
         VRAM[nametableAddress(address)] = data;
     else
-        paletteRAM[paletteAddress(address)] = data;    
+        paletteRAM[paletteAddress(address)] = data;
 }
 
 bool PPU::NMI()
@@ -136,24 +140,6 @@ bool PPU::NMI()
 
 void PPU::tick()
 {
-    if(false && frameCounter == 7 && dot == 0 && scanline == -1)
-    {
-        int i = 0;
-        uint16_t row = 0x0000;
-        std::cout << "      00 01 02 03 04 05 06 07 08 09 0A 0B 0C 0D 0E 0F 10 11 12 13 14 15 16 17 18 19 1A 1B 1C 1D 1E 1F\n" << std::endl;
-        while(i < 0x400)
-        {
-            std::cout << std::hex << std::setfill('0') << std::setw(4) << (uint)row << "  ";
-            row += 32;
-            for(int j = 0; j < 32; ++j)
-            {
-                std::cout << std::hex << std::setfill('0') << std::setw(2) << (uint)VRAM[i] << " ";
-                ++i;
-            }
-            std::cout << std::endl;
-        }
-    }
-
     if(scanline == -1)
         prerenderScanline();
     else if(scanline < 240)
@@ -191,10 +177,15 @@ void PPU::visibleScanline()
     if(dot == 0)
         return;
 
-    if(!renderingEnabled() && dot < 257)
+    if(!renderingEnabled())
     {
-        disabledRenderingDisplay();
-        return;
+        if(dot < 257)
+        {
+            disabledRenderingDisplay();
+            return;
+        }
+        else
+            return;        
     }
 
     if(dot < 257)
@@ -280,12 +271,12 @@ void PPU::incVertV()
         reg.v += 0x1000;
     else
     {
-        reg.v &= 0x8FFF;
+        reg.v &= 0x0FFF;
         int y = (reg.v & 0x03E0) >> 5;
         if(y == 29)
         {
             y = 0;
-            reg.v ^= 0x8000;
+            reg.v ^= 0x0800;
         }
         else if(y == 31)
             y = 0;
@@ -309,7 +300,7 @@ void PPU::incDot()
 {
     if(dot < 339)
         ++dot;
-    else if(dot == 339 && scanline == -1 && oddFrame)
+    else if(dot == 339 && scanline == -1 && oddFrame && renderingEnabled())
     {
         dot = 0;
         ++scanline;
@@ -374,7 +365,7 @@ void PPU::backgroundFetch()
             AT_Byte = read(0x23C0 | (reg.v & 0x0C00) | ((reg.v >> 4) & 0x38) | ((reg.v >> 2) & 0x07));
             break;
         case 6:
-            PT_Address = 0x0000 | ((reg.PPUCTRL & 0x10) << 4) | (NT_Byte << 4) | ((reg.v & 0x7000) >> 12);
+            PT_Address = 0x0000 | ((reg.PPUCTRL & 0x10) << 8) | (NT_Byte << 4) | ((reg.v & 0x7000) >> 12);
             PT_Low = read(PT_Address);
             break;
         case 8:

@@ -17,7 +17,7 @@ int main(int argc, char* argv[])
 	bool frameReady = false;
 	int frameCounter = 0;
 	//NES nes("../roms/DonkeyKong.nes", cpuLog, frameBuffer, renderFrame, frameCounter);
-	NES nes("C:/Users/Chris/Desktop/NES/roms/DonkeyKong.nes", cpuLog, frameBuffer, frameReady, frameCounter);
+	NES nes("C:/Users/Chris/Desktop/NES/roms/Mario.nes", cpuLog, frameBuffer, frameReady, frameCounter);
 
 	SDL_Window* window = nullptr;
 	SDL_Surface* screenSurface = nullptr;

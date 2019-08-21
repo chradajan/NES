@@ -224,6 +224,21 @@ struct APU_IO_Registers
 
 struct DebugInfo
 {
+	// void setInfo(uint8_t opcode, const CPU_Registers& cpu_reg, int cycles, int ppu_dot, int ppu_scanline)
+	// {
+	// 	OPCode = opcode;
+	// 	PC = cpu_reg.PC - 1;
+	// 	AC = cpu_reg.AC;
+	// 	X = cpu_reg.X;
+	// 	Y = cpu_reg.Y;
+	// 	SP = cpu_reg.SP;
+	// 	P = cpu_reg.SR;
+	// 	cycle = cycles;
+	// 	firstByte = secondByte = 0xFFFF;
+	// 	writeFirstByte = true;
+	// 	dot = ppu_dot;
+	// 	scanline = ppu_scanline;
+	// }
 	void setInfo(uint8_t opcode, const CPU_Registers& cpu_reg, int cycles, int ppu_dot, int ppu_scanline)
 	{
 		OPCode = opcode;
@@ -260,20 +275,20 @@ struct DebugInfo
 	}
 	void print(std::fstream& log)
 	{
-		log << std::hex << std::uppercase << std::setfill('0') << std::setw(4) << (uint)PC << "  ";
-		log << std::setw(2) << (uint)OPCode << " ";
+		log << std::hex << std::uppercase << std::setfill('0') << std::setw(4) << (uint)PC << " ";
+		log << "$" << std::setw(2) << (uint)OPCode << " ";
 
 		if(firstByte <= 0xFF)
 		{
-			log << std::setw(2) << (uint)(firstByte & 0xFF) << " ";
+			log << "$" << std::setw(2) << (uint)(firstByte & 0xFF) << " ";
 			if(secondByte <= 0xFF)
-				log << std::setw(2) << (uint)secondByte << "  ";
+				log << "$" << std::setw(2) << (uint)secondByte << " ";
 			else
 				log << "    ";
 		}
 		else
 		{
-			log << "       ";
+			log << "        ";
 		}
 
 		log << "A:" << std::setw(2) << (uint)AC << " ";
@@ -281,9 +296,13 @@ struct DebugInfo
 		log << "Y:" << std::setw(2) << (uint)Y << " ";
 		log << "P:" << std::setw(2) << (uint)P << " ";
 		log << "SP:" << std::setw(2) << (uint)SP << " ";
-		log << "Dot: " << std::dec << std::setw(3) << dot << " ";
-		log << "Scanline: " << std::setw(3) << scanline << " ";
-		log << "CYC:" << std::dec << cycle << std::endl;
+		log << "CYC:" << std::dec << dot << " ";
+		if(dot < 100) log << " ";
+		if(dot < 10) log << " ";
+		log << "SL:" << scanline << " ";
+		if(scanline < 100) log << " ";
+		if(scanline < 10 && scanline >= 0) log << " ";
+		log << "CPU Cycle:" << cycle << std::endl;
 	}
 private:
 	bool writeFirstByte;

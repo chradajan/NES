@@ -4,10 +4,12 @@ CPU::CPU(Cartridge* cart, PPU& ppu, APU_IO_Registers& apu_io_reg, std::fstream& 
 : cart(*cart), ppu(ppu), apu_io_registers(apu_io_reg), log(cpuLog)
 {
 	reg.SR = 0x34;
+	//reg.SR = 0x06;
 	reg.AC = 0;
 	reg.X = 0;
 	reg.Y = 0;
 	reg.SP = 0xFD;
+	//reg.SP = 0xFA;
 
 	write(0x4017, 0x00);
 	write(0x4015, 0x00);
@@ -1768,6 +1770,25 @@ void CPU::debug()
 {
 	if(totalCycles > 0)
 		debugInfo.print(log);
-	// debugInfo.setInfo(currentOP, reg, totalCycles, ppu.dot, ppu.scanline);
-	debugInfo.setInfo(currentOP, reg, totalCycles, 0, 0);
+
+	int dot = ppu.dot, scanline = ppu.scanline;
+
+	if(totalCycles > 0)
+	{
+		dot += 3;
+		if(dot == 340 && ppu.oddFrame && scanline == -1 && ppu.renderingEnabled())
+		{
+			dot = 0;
+			++scanline;
+		}
+		else if(dot > 340)
+		{
+			dot -= 341;
+			++scanline;
+			if(scanline == 261)
+				scanline = -1;
+		}
+	}
+	
+	debugInfo.setInfo(currentOP, reg, totalCycles, dot, scanline);
 }
