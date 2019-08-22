@@ -194,10 +194,19 @@ void PPU::visibleScanline()
         getSpritePixel();
         renderPixel();
         backgroundFetch();
-        spriteFetch();
+        spriteEval();
     }
     else if(dot == 257)
+    {
         setHoriV();
+        spriteFetchCycle = 0;
+        OAM_Location = 0;
+        for(int i = 0; i < 8; ++i)
+            sprites[i] = OAM_Secondary[i];
+        spriteFetch();
+    }
+    else if(dot < 321)
+        spriteFetch();
     else if(dot >= 321 && dot <= 336)
         backgroundFetch();
 }
@@ -322,12 +331,120 @@ void PPU::incDot()
 
 void PPU::getSpritePixel()
 {
+    spritePixel = 0x3F10;
+    BG_Priority = true;
 
+    for(int i = 7; i >= 0; --i)
+    {
+        if(sprites[i].decrementX())
+        {
+            uint8_t lowSpriteNibble = sprites[i].getPixelNibble();
+            if(lowSpriteNibble & 0x03)
+            {
+                spritePixel = 0x3F10 | lowSpriteNibble;
+                BG_Priority = sprites[i].attributes & 0x20;
+            }
+        }
+    }
+}
+
+void PPU::spriteEval()
+{
+    if(dot < 8)
+        OAM_Secondary[dot].clear();
+    else if(dot == 65)
+    {
+        N = reg.OAMADDR;
+        M = 0;
+        OAM_Location = 0;
+        spriteCount = 0;
+        OAM_Buffer = OAM[N + M];
+    }
+    else if(dot > 64 && dot < 257)
+    {
+        if(dot % 2 == 0)
+            spriteEvalWrite();
+        else
+            OAM_Buffer = OAM[N + M];
+    }
+}
+
+void PPU::spriteEvalWrite()
+{
+    if(N + M > 255)
+        return;
+
+    if(spriteCount < 8)
+    {
+        switch(M)
+        {
+            case 0:
+            {
+                OAM_Secondary[OAM_Location].Y = OAM_Buffer;
+                int spriteOffset = scanline - OAM_Buffer;
+                if(spriteOffset < ((reg.PPUCTRL & 0x20) ? 16 : 8))
+                {
+                    OAM_Secondary[OAM_Location].offset = spriteOffset;
+                    ++M;
+                }
+                else
+                    N += 4;  
+                break;
+            }
+            case 1:
+                OAM_Secondary[OAM_Location].tile = OAM_Buffer;
+                ++M;
+                break;
+            case 2:
+                OAM_Secondary[OAM_Location].attributes = OAM_Buffer;
+                ++M;
+                break;
+            case 3:
+                OAM_Secondary[OAM_Location].X = OAM_Buffer;
+                ++spriteCount;
+                ++OAM_Location;
+                N += 4;
+                M = 0;
+                break;
+        }
+    }
+    else
+        spriteOverflowEval();    
+}
+
+void PPU::spriteOverflowEval()
+{
+    if(reg.PPUSTATUS & 0x20)
+        return;
+    else if(scanline - OAM[N + M] < ((reg.PPUCTRL & 0x20) ? 16 : 8))
+        reg.PPUSTATUS |= 0x20;
+    else
+    {
+        N += 4;
+        M = (M == 3 ? 0 : M + 1);
+    }
 }
 
 void PPU::spriteFetch()
 {
+    //TODO: implement 8x16 sprites
+    ++spriteFetchCycle;
 
+    if(spriteFetchCycle == 6)
+    {
+        int offset = sprites[OAM_Location].offset;
+        if(sprites[OAM_Location].attributes & 0x80)
+            offset = (offset - 7) * -1;
+        PT_Address = 0x0000 | ((reg.PPUCTRL & 0x08) << 9) | (sprites[OAM_Location].tile << 4) | offset;
+        sprites[OAM_Location].PT_Low = read(PT_Address);
+    }
+    else if(spriteFetchCycle == 8)
+    {
+        PT_Address |= 0x80;
+        sprites[OAM_Location].PT_High = read(PT_Address);
+        spriteFetchCycle = 0;
+        ++OAM_Location;
+    }
 }
 
 void PPU:: getBackgroundPixel()
@@ -339,16 +456,6 @@ void PPU:: getBackgroundPixel()
     BG_Pixel |= ((AT_Shifter_Low & AT_Mask) ? 0x0004 : 0x0000);
     BG_Pixel |= ((PT_Shifter_High & PT_Mask) ? 0x0002 : 0x0000);
     BG_Pixel |= ((PT_Shifter_Low & PT_Mask) ? 0x0001 : 0x0000);
-}
-
-void PPU::shiftRegisters()
-{
-    PT_Shifter_High <<= 1;
-    PT_Shifter_Low <<= 1;
-    AT_Shifter_High <<= 1;
-    AT_Shifter_High |= (AT_Latch_High ? 0x01 : 0x00);
-    AT_Shifter_Low <<= 1;
-    AT_Shifter_Low |= (AT_Latch_Low ? 0x01 : 0x00);
 }
 
 void PPU::backgroundFetch()
@@ -380,6 +487,16 @@ void PPU::backgroundFetch()
         default:
             break;
     }
+}
+
+void PPU::shiftRegisters()
+{
+    PT_Shifter_High <<= 1;
+    PT_Shifter_Low <<= 1;
+    AT_Shifter_High <<= 1;
+    AT_Shifter_High |= (AT_Latch_High ? 0x01 : 0x00);
+    AT_Shifter_Low <<= 1;
+    AT_Shifter_Low |= (AT_Latch_Low ? 0x01 : 0x00);
 }
 
 void PPU::loadShiftRegisters()
@@ -417,7 +534,18 @@ void PPU::setAttributeLatches()
 
 void PPU::renderPixel()
 {
-    uint8_t colorIndex = read(BG_Pixel);
+    uint8_t colorIndex;
+
+    if(!(spritePixel & 0x000F))
+        colorIndex = read(BG_Pixel);
+    else
+    {
+        if(BG_Priority)
+            colorIndex = read(BG_Pixel);
+        else
+            colorIndex = read(spritePixel);        
+    }
+
     RGB color = colors[colorIndex];
     frameBuffer[frameBufferPointer++] = color.R;
     frameBuffer[frameBufferPointer++] = color.G;

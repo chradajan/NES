@@ -6,7 +6,6 @@ CPU:
 
 PPU:
     Sprite 0
-    Check rendering enabled
 
 APU:
     Implement this
@@ -14,9 +13,3 @@ APU:
 GUI:
     Make one
     QT?
-
-SDL:
-    Figure out how this works
-    Framebuffer
-
-SDL: copy content from bin to mingw install

@@ -27,6 +27,50 @@ inline std::ostream& operator<<(std::ostream& os, const RGB& rgb)
 	return os;  
 }
 
+struct Sprite
+{
+	uint8_t Y;
+	uint8_t tile;
+	uint8_t attributes;
+	int X;
+	uint8_t PT_High, PT_Low;
+
+	int offset;
+
+	void clear()
+	{
+		Y = tile = attributes = X = 0xFF;
+		PT_High = PT_Low = 0x00;
+		offset = 0;
+	}
+
+	bool decrementX()
+	{
+		--X;
+		return (X < 1) && (X > -8);	
+	}
+
+	uint8_t getPixelNibble()
+	{
+		uint8_t pixelNibble = 0x00 | ((attributes & 0x03) << 2);
+		if(attributes & 0x40) //Flip horizontally
+		{
+			pixelNibble |= ((PT_High & 0x01) << 1);
+			PT_High >>= 1;
+			pixelNibble |= (PT_Low & 0x01);
+			PT_Low >>= 1;
+		}
+		else
+		{
+			pixelNibble |= ((PT_High & 0x80) >> 6);
+			PT_High <<= 1;
+			pixelNibble |= ((PT_Low & 0x80) >> 7);
+			PT_Low <<= 1;
+		}	
+		return pixelNibble;	
+	}
+};
+
 struct HeaderData
 {
 	uint8_t PRG_ROM_SIZE;
@@ -224,21 +268,6 @@ struct APU_IO_Registers
 
 struct DebugInfo
 {
-	// void setInfo(uint8_t opcode, const CPU_Registers& cpu_reg, int cycles, int ppu_dot, int ppu_scanline)
-	// {
-	// 	OPCode = opcode;
-	// 	PC = cpu_reg.PC - 1;
-	// 	AC = cpu_reg.AC;
-	// 	X = cpu_reg.X;
-	// 	Y = cpu_reg.Y;
-	// 	SP = cpu_reg.SP;
-	// 	P = cpu_reg.SR;
-	// 	cycle = cycles;
-	// 	firstByte = secondByte = 0xFFFF;
-	// 	writeFirstByte = true;
-	// 	dot = ppu_dot;
-	// 	scanline = ppu_scanline;
-	// }
 	void setInfo(uint8_t opcode, const CPU_Registers& cpu_reg, int cycles, int ppu_dot, int ppu_scanline)
 	{
 		OPCode = opcode;

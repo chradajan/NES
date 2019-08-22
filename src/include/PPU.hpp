@@ -22,7 +22,9 @@ private:
     friend class CPU;
     PPU_Registers reg;
     uint8_t VRAM[0x800];
-    uint8_t OAM[0x100];
+    uint8_t OAM[0x100]; //Primary OAM
+    Sprite OAM_Secondary[8]; //Used during sprite evaluation
+    Sprite sprites[8]; //Used for rending sprites
     uint8_t paletteRAM[0x20];
 
     Cartridge& cart;
@@ -52,14 +54,21 @@ private:
     void incDot();
 
     //Sprites
-    uint16_t Sprite_Pixel = 0x0000;
+    uint16_t spritePixel = 0x0000;
+    bool BG_Priority = true;
     void getSpritePixel();
+
+    int N, M, OAM_Location, spriteCount, spriteFetchCycle;
+    uint8_t OAM_Buffer;
+    uint16_t Sprite_Pixel = 0x0000;
+    void spriteEval();
+    void spriteEvalWrite();
+    void spriteOverflowEval();
     void spriteFetch();
 
     //Background
     uint16_t BG_Pixel = 0x0000;
     void getBackgroundPixel();
-    void shiftRegisters();
 
     int backgroundFetchCycle = 0;
     uint8_t NT_Byte = 0x00, AT_Byte = 0x00, PT_High = 0x00, PT_Low = 0x00;
@@ -68,6 +77,7 @@ private:
     uint8_t AT_Shifter_High = 0x00, AT_Shifter_Low = 0x00;
     bool AT_Latch_High = false, AT_Latch_Low = false;
     void backgroundFetch();
+    void shiftRegisters();
     void loadShiftRegisters();
     void setAttributeLatches();
 
