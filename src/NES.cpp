@@ -3,20 +3,18 @@
 #include <cassert>
 #include <iomanip>
 
-NES::NES(const char* file, std::fstream& cpuLog, char* frameBuffer, bool& frameReady, int& frameCounter)
+NES::NES(const char* file, std::fstream& cpuLog, char* frameBuffer, GameWindow& screen)
 {
 	loadROM(file);
 	createPalette();
-	ppu = new PPU(cart, colors, frameBuffer, frameReady, frameCounter);
+	ppu = new PPU(cart, colors, frameBuffer, screen);
 	cpu = new CPU(cart, *ppu, apu_io_registers, cpuLog);
 }
 
 void NES::tick()
 {
 	cpu->tick();
-	ppu->tick();
-	ppu->tick();
-	ppu->tick();
+	ppu->tick(); //Gets repeated 3 times
 }
 
 NES::~NES()

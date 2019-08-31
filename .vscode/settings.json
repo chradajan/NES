@@ -35,6 +35,13 @@
         "typeinfo": "cpp",
         "utility": "cpp",
         "cstdarg": "cpp",
-        "cinttypes": "cpp"
+        "cinttypes": "cpp",
+        "atomic": "cpp",
+        "cstddef": "cpp",
+        "deque": "cpp",
+        "algorithm": "cpp",
+        "memory": "cpp",
+        "memory_resource": "cpp",
+        "string": "cpp"
     }
 }

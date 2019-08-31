@@ -1,7 +1,7 @@
 #include "include/PPU.hpp"
 
-PPU::PPU(Cartridge* cartridge, RGB* color, char* fb, bool& frameReady, int& frameCounter)
-: cart(*cartridge), colors(color), frameBuffer(fb) , frameReady(frameReady), frameCounter(frameCounter)
+PPU::PPU(Cartridge* cartridge, RGB* color, char* fb, GameWindow& screen)
+: cart(*cartridge), colors(color), frameBuffer(fb), screen(screen)
 {
     for(int i = 0; i < 0x800; ++i)
         VRAM[i] = 0x00;
@@ -140,17 +140,20 @@ bool PPU::NMI()
 
 void PPU::tick()
 {
-    if(scanline == -1)
-        prerenderScanline();
-    else if(scanline < 240)
-        visibleScanline();
-    else if(scanline == 241 && dot == 1)
+    for(int i = 0; i < 3; ++i)
     {
-        reg.PPUSTATUS |= 0x80; //Set vblank
-        setNMI();
-    }
+        if(scanline == -1)
+            prerenderScanline();
+        else if(scanline < 240)
+            visibleScanline();
+        else if(scanline == 241 && dot == 1)
+        {
+            reg.PPUSTATUS |= 0x80; //Set vblank
+            setNMI();
+        }
 
-    incDot();
+        incDot();
+    }
 }
 
 void PPU::prerenderScanline()
@@ -194,15 +197,13 @@ void PPU::visibleScanline()
         getSpritePixel();
         renderPixel();
         backgroundFetch();
-        spriteEval();
     }
     else if(dot == 257)
     {
         setHoriV();
+        spriteEval();
         spriteFetchCycle = 0;
-        OAM_Location = 0;
-        for(int i = 0; i < 8; ++i)
-            sprites[i] = OAM_Secondary[i];
+        OAM_Location = 0;     
         spriteFetch();
     }
     else if(dot < 321)
@@ -219,6 +220,7 @@ bool PPU::renderingEnabled()
 void PPU::disabledRenderingDisplay()
 {
     //Show universal background color or current color if vram is in palette space
+
 }
 
 void PPU::setNMI()
@@ -244,22 +246,22 @@ uint16_t PPU::nametableAddress(uint16_t address)
 uint16_t PPU::paletteAddress(uint16_t address)
 {
     address %= 0x20;
-    switch(address)
-    {
-        case 0x04:
-        case 0x08:
-        case 0x0C:
-            address = 0x00;
-            break;
-        case 0x10:
-        case 0x14:
-        case 0x18:
-        case 0x1C:
-            address -= 0x10;
-            break;
-        default:
-            break;
-    }
+    // switch(address)
+    // {
+    //     case 0x04:
+    //     case 0x08:
+    //     case 0x0C:
+    //         address = 0x00;
+    //         break;
+    //     // case 0x10:
+    //     // case 0x14:
+    //     // case 0x18:
+    //     // case 0x1C:
+    //     //     address -= 0x10;
+    //     //     break;
+    //     default:
+    //         break;
+    // }
     return address;
 }
 
@@ -324,25 +326,28 @@ void PPU::incDot()
         {
             scanline = -1;
             oddFrame = !oddFrame;
-            ++frameCounter;
         }
     }    
 }
 
 void PPU::getSpritePixel()
 {
+    if(scanline == 0)
+        return;
+
     spritePixel = 0x3F10;
     BG_Priority = true;
-
+  
     for(int i = 7; i >= 0; --i)
     {
-        if(sprites[i].decrementX())
+        if(OAM_Secondary[i].decrementX())
         {
-            uint8_t lowSpriteNibble = sprites[i].getPixelNibble();
+            uint8_t lowSpriteNibble = OAM_Secondary[i].getPixelNibble();
             if(lowSpriteNibble & 0x03)
             {
+                checkSprite0Hit = OAM_Secondary[i].sprite0;
                 spritePixel = 0x3F10 | lowSpriteNibble;
-                BG_Priority = sprites[i].attributes & 0x20;
+                BG_Priority = OAM_Secondary[i].attributes & 0x20;
             }
         }
     }
@@ -350,101 +355,115 @@ void PPU::getSpritePixel()
 
 void PPU::spriteEval()
 {
-    if(dot < 8)
-        OAM_Secondary[dot].clear();
-    else if(dot == 65)
-    {
-        N = reg.OAMADDR;
-        M = 0;
-        OAM_Location = 0;
-        spriteCount = 0;
-        OAM_Buffer = OAM[N + M];
-    }
-    else if(dot > 64 && dot < 257)
-    {
-        if(dot % 2 == 0)
-            spriteEvalWrite();
-        else
-            OAM_Buffer = OAM[N + M];
-    }
-}
+    for(int i = 0; i < 8; ++i)
+        OAM_Secondary[i].clear();
 
-void PPU::spriteEvalWrite()
-{
-    if(N + M > 255)
-        return;
+    int N = 0;
+    int spriteCount = 0;
+    OAM_Location = 0;
+    int offset;
 
-    if(spriteCount < 8)
+    while(N < 256)
     {
-        switch(M)
+        if(spriteCount == 8)
         {
-            case 0:
+            spriteOverflowEval(N);
+            break;
+        }
+        else
+        {
+            OAM_Secondary[OAM_Location].Y = OAM[N];
+            offset = scanline - OAM[N];
+            if(offset >= 0 && offset < ((reg.PPUCTRL & 0x20) ? 16 : 8))
             {
-                OAM_Secondary[OAM_Location].Y = OAM_Buffer;
-                int spriteOffset = scanline - OAM_Buffer;
-                if(spriteOffset < ((reg.PPUCTRL & 0x20) ? 16 : 8))
-                {
-                    OAM_Secondary[OAM_Location].offset = spriteOffset;
-                    ++M;
-                }
-                else
-                    N += 4;  
-                break;
-            }
-            case 1:
-                OAM_Secondary[OAM_Location].tile = OAM_Buffer;
-                ++M;
-                break;
-            case 2:
-                OAM_Secondary[OAM_Location].attributes = OAM_Buffer;
-                ++M;
-                break;
-            case 3:
-                OAM_Secondary[OAM_Location].X = OAM_Buffer;
+                if(N == 0)
+                    OAM_Secondary[OAM_Location].sprite0 = true;
+
+                OAM_Secondary[OAM_Location].offset = offset;
+
+                OAM_Secondary[OAM_Location].tile = OAM[N + 1];
+                OAM_Secondary[OAM_Location].attributes = OAM[N + 2];
+                OAM_Secondary[OAM_Location].X = OAM[N + 3];
+
                 ++spriteCount;
                 ++OAM_Location;
-                N += 4;
-                M = 0;
-                break;
-        }
+            }
+        }     
+
+        N +=4;
     }
-    else
-        spriteOverflowEval();    
 }
 
-void PPU::spriteOverflowEval()
+void PPU::spriteOverflowEval(int N)
 {
-    if(reg.PPUSTATUS & 0x20)
-        return;
-    else if(scanline - OAM[N + M] < ((reg.PPUCTRL & 0x20) ? 16 : 8))
-        reg.PPUSTATUS |= 0x20;
-    else
+    int M = 0;
+    int offset;
+
+    while(N < 256)
     {
-        N += 4;
-        M = (M == 3 ? 0 : M + 1);
+        offset = scanline - OAM[N + M];
+        if(offset >= 0 && offset < ((reg.PPUCTRL & 0x20) ? 16 : 8))
+        {
+            reg.PPUSTATUS |= 0x20;
+            break;
+        }
+        else
+        {
+            N += 4;
+            if(M == 3)
+                M = 0;
+            else
+                ++M;            
+        }        
     }
 }
 
 void PPU::spriteFetch()
 {
-    //TODO: implement 8x16 sprites
     ++spriteFetchCycle;
 
     if(spriteFetchCycle == 6)
     {
-        int offset = sprites[OAM_Location].offset;
-        if(sprites[OAM_Location].attributes & 0x80)
-            offset = (offset - 7) * -1;
-        PT_Address = 0x0000 | ((reg.PPUCTRL & 0x08) << 9) | (sprites[OAM_Location].tile << 4) | offset;
-        sprites[OAM_Location].PT_Low = read(PT_Address);
+        int offset = OAM_Secondary[OAM_Location].offset;
+        
+        if((reg.PPUCTRL & 0x20)) //8x16
+        {
+            if(OAM_Secondary[OAM_Location].attributes & 0x80)
+            {
+                
+            }
+        }
+        else //8x8
+        {
+            if(OAM_Secondary[OAM_Location].attributes & 0x80)
+                offset = (offset - 7) * -1;
+            PT_Address = 0x0000 | ((reg.PPUCTRL & 0x08) << 9) | (OAM_Secondary[OAM_Location].tile << 4) | offset;
+        }
+
+        OAM_Secondary[OAM_Location].PT_Low = read(PT_Address);
     }
     else if(spriteFetchCycle == 8)
     {
-        PT_Address |= 0x80;
-        sprites[OAM_Location].PT_High = read(PT_Address);
+        PT_Address |= 0x08;
+        OAM_Secondary[OAM_Location].PT_High = read(PT_Address);
         spriteFetchCycle = 0;
         ++OAM_Location;
     }
+}
+
+void PPU::sprite0Hit()
+{
+    if(reg.PPUSTATUS & 0x40)
+        return;
+    
+    //Conditions when sprite 0 doesn't occur
+    if( ((reg.PPUMASK & 0x18) != 0x18) ||                    //If background or sprites are disabled
+        ((dot <= 8) && ((reg.PPUMASK & 0x06) != 0x06)) ||    //If left-side clipping is enabled and dot <= 8
+        (dot == 255) ||                                      //Dot == 255 due to pixel pipeline related wiring
+        (!(BG_Pixel & 0x03)))                                //Background pixel is transparent (sprite can't be transparent but this is only checked when an opaque sprite 0 pixel is selected for rendering)                           
+       return;
+    else   
+        reg.PPUSTATUS |= 0x40;
 }
 
 void PPU:: getBackgroundPixel()
@@ -532,19 +551,31 @@ void PPU::setAttributeLatches()
     }   
 }
 
+uint8_t PPU::pixelMultiplexer()
+{
+    uint16_t indexAddress;
+
+    //TODO: Check whether to show pixels in leftmost 8 pixels
+
+    if(!(BG_Priority && (BG_Pixel & 0x03)))
+        indexAddress = spritePixel;
+    else
+        indexAddress = BG_Pixel;
+
+    if(!(reg.PPUMASK & 0x08)) //Background disabled
+        indexAddress = spritePixel;
+    else if(!(reg.PPUMASK & 0x10) || scanline == 0) //Sprites disabled
+        indexAddress = BG_Pixel;
+
+    if(checkSprite0Hit)
+        sprite0Hit();
+
+    return read(indexAddress);
+}
+
 void PPU::renderPixel()
 {
-    uint8_t colorIndex;
-
-    if(!(spritePixel & 0x000F))
-        colorIndex = read(BG_Pixel);
-    else
-    {
-        if(BG_Priority)
-            colorIndex = read(BG_Pixel);
-        else
-            colorIndex = read(spritePixel);        
-    }
+    uint8_t colorIndex = pixelMultiplexer();
 
     RGB color = colors[colorIndex];
     frameBuffer[frameBufferPointer++] = color.R;
@@ -554,6 +585,6 @@ void PPU::renderPixel()
     if(frameBufferPointer >= 184320)
     {
         frameBufferPointer = 0;
-        frameReady = true;
+        screen.update();
     }
 }

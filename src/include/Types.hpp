@@ -36,18 +36,20 @@ struct Sprite
 	uint8_t PT_High, PT_Low;
 
 	int offset;
+	bool sprite0;
 
 	void clear()
 	{
 		Y = tile = attributes = X = 0xFF;
 		PT_High = PT_Low = 0x00;
 		offset = 0;
+		sprite0 = false;
 	}
 
 	bool decrementX()
 	{
 		--X;
-		return (X < 1) && (X > -8);	
+		return (X <= 0 && X >= -7);	
 	}
 
 	uint8_t getPixelNibble()

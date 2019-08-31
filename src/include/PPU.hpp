@@ -4,15 +4,14 @@
 #include <cstdint>
 #include "Cartridge.hpp"
 #include "Types.hpp"
-#include <iostream>
-#include <iomanip>
+#include "GameWindow.hpp"
 
 class CPU;
 
 class PPU
 {
 public:
-    PPU(Cartridge* cartridge, RGB* color, char* fb, bool& frameReady, int& frameCounter);
+    PPU(Cartridge* cartridge, RGB* color, char* fb, GameWindow& screen);
     uint8_t readMemMappedReg(uint16_t address);
     void writeMemMappedReg(uint16_t address, uint8_t data);
     void tick();
@@ -24,7 +23,6 @@ private:
     uint8_t VRAM[0x800];
     uint8_t OAM[0x100]; //Primary OAM
     Sprite OAM_Secondary[8]; //Used during sprite evaluation
-    Sprite sprites[8]; //Used for rending sprites
     uint8_t paletteRAM[0x20];
 
     Cartridge& cart;
@@ -54,17 +52,18 @@ private:
     void incDot();
 
     //Sprites
+    bool checkSprite0Hit = false;
     uint16_t spritePixel = 0x0000;
     bool BG_Priority = true;
     void getSpritePixel();
 
-    int N, M, OAM_Location, spriteCount, spriteFetchCycle;
-    uint8_t OAM_Buffer;
+    int N, M, OAM_Location, /*spriteCount,*/ spriteFetchCycle;
+    //uint8_t OAM_Buffer;
     uint16_t Sprite_Pixel = 0x0000;
     void spriteEval();
-    void spriteEvalWrite();
-    void spriteOverflowEval();
+    void spriteOverflowEval(int N);
     void spriteFetch();
+    void sprite0Hit();
 
     //Background
     uint16_t BG_Pixel = 0x0000;
@@ -83,11 +82,9 @@ private:
 
     //Rendering
     int frameBufferPointer = 0;
-    bool& frameReady;
+    uint8_t pixelMultiplexer();
     void renderPixel();
-
-    //TEMP
-    int& frameCounter;
+    GameWindow& screen;
 };
 
 #endif

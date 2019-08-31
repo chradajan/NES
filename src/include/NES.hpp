@@ -8,11 +8,12 @@
 #include "Types.hpp"
 #include "Cartridge.hpp"
 #include "Exceptions.hpp"
+#include "GameWindow.hpp"
 
 class NES
 {
 public:
-	NES(const char* file, std::fstream& cpuLog, char* frameBuffer, bool& renderFrame, int& frameCounter);
+	NES(const char* file, std::fstream& cpuLog, char* frameBuffer, GameWindow& screen);
 	void tick();
 	~NES();
 
