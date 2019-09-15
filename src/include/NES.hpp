@@ -8,24 +8,23 @@
 #include "Types.hpp"
 #include "Cartridge.hpp"
 #include "Exceptions.hpp"
-#include "GameWindow.hpp"
 
 class NES
 {
 public:
-	NES(const char* file, std::fstream& cpuLog, char* frameBuffer, GameWindow& screen);
-	void tick();
+	NES(const char* file, char* frameBuffer);
+	void prepareFrame();
 	~NES();
 
 private:
 	HeaderData header;
-	//PPU_Registers ppu_registers;
-	APU_IO_Registers apu_io_registers;	
 	Cartridge* cart;
 	CPU* cpu;
 	APU* apu;
 	PPU* ppu;
+	Controllers* controllers;
 	RGB* colors;
+	bool frameReady = false;
 
 	//ROM Loading
 	void loadROM(const char* file);

@@ -1,7 +1,7 @@
 #include "include/PPU.hpp"
 
-PPU::PPU(Cartridge* cartridge, RGB* color, char* fb, GameWindow& screen)
-: cart(*cartridge), colors(color), frameBuffer(fb), screen(screen)
+PPU::PPU(Cartridge* cartridge, RGB* color, char* fb, bool& frameReady)
+: cart(*cartridge), colors(color), frameBuffer(fb), frameReady(frameReady)
 {
     for(int i = 0; i < 0x800; ++i)
         VRAM[i] = 0x00;
@@ -140,20 +140,17 @@ bool PPU::NMI()
 
 void PPU::tick()
 {
-    for(int i = 0; i < 3; ++i)
+    if(scanline == -1)
+        prerenderScanline();
+    else if(scanline < 240)
+        visibleScanline();
+    else if(scanline == 241 && dot == 1)
     {
-        if(scanline == -1)
-            prerenderScanline();
-        else if(scanline < 240)
-            visibleScanline();
-        else if(scanline == 241 && dot == 1)
-        {
-            reg.PPUSTATUS |= 0x80; //Set vblank
-            setNMI();
-        }
-
-        incDot();
+        reg.PPUSTATUS |= 0x80; //Set vblank
+        setNMI();
     }
+
+    incDot();
 }
 
 void PPU::prerenderScanline()
@@ -245,7 +242,10 @@ uint16_t PPU::nametableAddress(uint16_t address)
 
 uint16_t PPU::paletteAddress(uint16_t address)
 {
+    //TODO: figure out how palette addresses are mirrored
     address %= 0x20;
+    if(address == 0x10)
+        address = 0x00;
     // switch(address)
     // {
     //     case 0x04:
@@ -253,12 +253,12 @@ uint16_t PPU::paletteAddress(uint16_t address)
     //     case 0x0C:
     //         address = 0x00;
     //         break;
-    //     // case 0x10:
-    //     // case 0x14:
-    //     // case 0x18:
-    //     // case 0x1C:
-    //     //     address -= 0x10;
-    //     //     break;
+    //     case 0x10:
+    //     case 0x14:
+    //     case 0x18:
+    //     case 0x1C:
+    //         address -= 0x10;
+    //         break;
     //     default:
     //         break;
     // }
@@ -584,7 +584,7 @@ void PPU::renderPixel()
 
     if(frameBufferPointer >= 184320)
     {
+        frameReady = true;
         frameBufferPointer = 0;
-        screen.update();
     }
 }

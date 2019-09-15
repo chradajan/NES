@@ -1,22 +1,8 @@
 #include "include/CPU.hpp"
 
-CPU::CPU(Cartridge* cart, PPU& ppu, APU_IO_Registers& apu_io_reg, std::fstream& cpuLog) 
-: cart(*cart), ppu(ppu), apu_io_registers(apu_io_reg), log(cpuLog)
+CPU::CPU(Cartridge* cart, PPU& ppu, APU& apu, Controllers& controllers) 
+: cart(*cart), ppu(ppu), apu(apu), controllers(controllers)
 {
-	reg.SR = 0x34;
-	//reg.SR = 0x06;
-	reg.AC = 0;
-	reg.X = 0;
-	reg.Y = 0;
-	reg.SP = 0xFD;
-	//reg.SP = 0xFA;
-
-	write(0x4017, 0x00);
-	write(0x4015, 0x00);
-	for(uint16_t i = 0x4000; i < 0x4010; ++i)
-		write(i, 0x00);
-	for(uint16_t i = 0x0000; i < 0x2000; ++i)
-		write(i, 0x00);
 	//TODO: set noise channel
 
 	cycleCount = 0;
@@ -24,8 +10,6 @@ CPU::CPU(Cartridge* cart, PPU& ppu, APU_IO_Registers& apu_io_reg, std::fstream& 
 	oddCycle = false;
 
 	totalCycles = 0;
-
-	debugEnabled = false;
 
 	Reset_Vector();
 
@@ -116,8 +100,10 @@ uint8_t CPU::read(uint16_t address) const
 		return RAM[address % 0x0800];
 	else if(address < 0x4000) //PPU registers
 		return ppu.readMemMappedReg(address);
-	else if(address < 0x4018) //APU or I/O Registers
-		return apu_io_registers.read(address);
+	else if(address < 0x4016) //APU or I/O Registers
+		return apu.readMemMappedReg(address);
+	else if(address < 0x4018)
+		return controllers.read(address);
 	else if(address < 0x4020) //Disabled APU and I/O Functionality
 		throw Unsupported("CPU Test Mode Disabled");
 	else //Cartridge Space
@@ -137,10 +123,11 @@ void CPU::write(uint16_t address, uint8_t data)
 		dmaLowByte = 0x00;
 		dmaTransferCycles = 513 + (oddCycle ? 1 : 0);
 		cycleCountReturn = cycleCount;
-		apu_io_registers.write(address, data);
 	}
+	else if(address == 0x4016)
+		controllers.write(data);
 	else if(address < 0x4018) //APU or I/O Registers
-		apu_io_registers.write(address, data);
+		apu.writeMemMappedReg(address, data);
 	else if(address < 0x4020) //Disabled APU and I/O Functionality
 		throw Unsupported("CPU Test Mode Disabled");
 	else //Cartridge Space
@@ -163,8 +150,6 @@ void CPU::readOPCode()
 {
 	if(ppu.NMI())
 	{
-		if(debugEnabled)
-			debug();
 		cycleCount = 1;
 		tickFunction = std::bind(&CPU::NMI, this);
 		tickFunction();
@@ -172,8 +157,6 @@ void CPU::readOPCode()
 	else
 	{
 		currentOP = read(reg.PC++);
-		if(debugEnabled)
-			debug();
 		cycleCount = 0;
 	}
 }
@@ -181,8 +164,6 @@ void CPU::readOPCode()
 uint8_t CPU::readROM()
 {
 	uint8_t operand = read(reg.PC++);
-	if(debugEnabled)
-		debugInfo.add(operand);
 	return operand;
 }
 
@@ -1764,31 +1745,4 @@ void CPU::decodeOP()
 			throw UnkownOPCode(currentOP, cycleCount, totalCycles, reg.PC);
 	}
 	tickFunction();
-}
-
-void CPU::debug()
-{
-	if(totalCycles > 0)
-		debugInfo.print(log);
-
-	int dot = ppu.dot, scanline = ppu.scanline;
-
-	if(totalCycles > 0)
-	{
-		dot += 3;
-		if(dot == 340 && ppu.oddFrame && scanline == -1 && ppu.renderingEnabled())
-		{
-			dot = 0;
-			++scanline;
-		}
-		else if(dot > 340)
-		{
-			dot -= 341;
-			++scanline;
-			if(scanline == 261)
-				scanline = -1;
-		}
-	}
-	
-	debugInfo.setInfo(currentOP, reg, totalCycles, dot, scanline);
 }

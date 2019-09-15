@@ -3,26 +3,38 @@
 #include <cstdint>
 #include <functional>
 #include <iostream>
-#include <fstream>
 #include <string>
 #include "Cartridge.hpp"
 #include "Types.hpp"
 #include "Exceptions.hpp"
 #include "PPU.hpp"
+#include "APU.hpp"
+#include "Controllers.hpp"
 
 class CPU
 {
 public:
-	CPU(Cartridge* cart, PPU& ppu, APU_IO_Registers& apu_io_reg, std::fstream& cpuLog);
+	CPU(Cartridge* cart, PPU& ppu, APU& apu, Controllers& controllers);
 	void reset();
 	void tick();
 	~CPU();
 
 private:
+	struct CPU_Registers
+	{
+		uint8_t AC = 0x00;		//Accumulator
+		uint8_t X = 0x00;		//X
+		uint8_t Y = 0x00;		//Y
+		uint16_t PC;			//Program Counter
+		uint8_t SP = 0xFD;		//Stack Pointer
+		uint8_t SR = 0x34;		//Status
+	};
+
 	Cartridge& cart;
 	CPU_Registers reg;
 	PPU& ppu;
-	APU_IO_Registers& apu_io_registers;
+	APU& apu;
+	Controllers& controllers;
 	uint8_t RAM[0x0800];
 
 	//State
@@ -136,12 +148,6 @@ private:
 	
 	//Execution
 	void decodeOP();
-
-	//Debug
-	void debug();
-	DebugInfo debugInfo;
-	bool debugEnabled;
-	std::fstream& log;
 };
 
 #endif

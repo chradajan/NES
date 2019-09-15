@@ -4,21 +4,30 @@
 #include <cstdint>
 #include "Cartridge.hpp"
 #include "Types.hpp"
-#include "GameWindow.hpp"
-
-class CPU;
 
 class PPU
 {
 public:
-    PPU(Cartridge* cartridge, RGB* color, char* fb, GameWindow& screen);
+    PPU(Cartridge* cartridge, RGB* color, char* fb, bool& frameReady);
     uint8_t readMemMappedReg(uint16_t address);
     void writeMemMappedReg(uint16_t address, uint8_t data);
     void tick();
     bool NMI();
     ~PPU();
 private:
-    friend class CPU;
+    struct PPU_Registers
+    {
+        uint8_t PPUCTRL = 0;
+        uint8_t PPUMASK = 0;
+        uint8_t PPUSTATUS = 0;
+        uint8_t OAMADDR = 0;
+        uint8_t ReadBuffer = 0;
+
+        uint16_t v = 0;
+        uint16_t t = 0;
+        uint8_t x = 0;
+        bool w = false;
+    };
     PPU_Registers reg;
     uint8_t VRAM[0x800];
     uint8_t OAM[0x100]; //Primary OAM
@@ -28,6 +37,7 @@ private:
     Cartridge& cart;
     RGB* colors;
     char* frameBuffer;
+    bool& frameReady;
 
     bool vblank = true, nmi = false;
     int scanline = 0, dot = 30;
@@ -84,7 +94,6 @@ private:
     int frameBufferPointer = 0;
     uint8_t pixelMultiplexer();
     void renderPixel();
-    GameWindow& screen;
 };
 
 #endif

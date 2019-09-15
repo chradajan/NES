@@ -3,24 +3,34 @@
 #include <cassert>
 #include <iomanip>
 
-NES::NES(const char* file, std::fstream& cpuLog, char* frameBuffer, GameWindow& screen)
+NES::NES(const char* file, char* frameBuffer)
 {
 	loadROM(file);
 	createPalette();
-	ppu = new PPU(cart, colors, frameBuffer, screen);
-	cpu = new CPU(cart, *ppu, apu_io_registers, cpuLog);
+	controllers = new Controllers();
+	apu = new APU();
+	ppu = new PPU(cart, colors, frameBuffer, frameReady);
+	cpu = new CPU(cart, *ppu, *apu, *controllers);
 }
 
-void NES::tick()
+void NES::prepareFrame()
 {
-	cpu->tick();
-	ppu->tick(); //Gets repeated 3 times
+	while(!frameReady)
+	{
+		cpu->tick();
+		ppu->tick();
+		ppu->tick();
+		ppu->tick();
+	}
+	frameReady = false;
 }
 
 NES::~NES()
 {
 	delete cpu;
 	delete ppu;
+	delete apu;
+	delete controllers;
 	delete cart;
 	delete[] colors;
 }
