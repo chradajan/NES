@@ -2,6 +2,7 @@
 #define CONTROLLERS_H
 
 #include <cstdint>
+#include <SDL2/SDL.h>
 
 class Controllers
 {
@@ -9,6 +10,7 @@ public:
     Controllers();
     uint8_t read(uint16_t address);
     void write(uint8_t data);
+    void getKeyPresses();
     ~Controllers();
 private:
     bool S = false; //Strobe

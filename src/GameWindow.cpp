@@ -24,21 +24,6 @@ void GameWindow::run()
                 quit = true;
         }
 
-        //Actual commented out
-
-        // const uint8_t* currentKeyStates = SDL_GetKeyboardState(NULL);
-
-        // nes->buttonPress(0x4016, A, currentKeyStates[SDL_SCANCODE_L]);
-        // nes->buttonPress(0x4016, B, currentKeyStates[SDL_SCANCODE_K]);  
-        // nes->buttonPress(0x4016, SELECT, currentKeyStates[SDL_SCANCODE_O]);
-        // nes->buttonPress(0x4016, START, currentKeyStates[SDL_SCANCODE_P]);
-        // nes->buttonPress(0x4016, UP, currentKeyStates[SDL_SCANCODE_W]);
-        // nes->buttonPress(0x4016, DOWN, currentKeyStates[SDL_SCANCODE_S]);
-        // nes->buttonPress(0x4016, LEFT, currentKeyStates[SDL_SCANCODE_A]);
-        // nes->buttonPress(0x4016, RIGHT, currentKeyStates[SDL_SCANCODE_D]);
-
-        //End here
-
         nes->prepareFrame();
         update();
     }
