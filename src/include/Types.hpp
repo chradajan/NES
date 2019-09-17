@@ -49,7 +49,7 @@ struct Sprite
 	bool decrementX()
 	{
 		--X;
-		return (X <= 0 && X >= -7);	
+		return (X <= -1 && X >= -8);	
 	}
 
 	uint8_t getPixelNibble()

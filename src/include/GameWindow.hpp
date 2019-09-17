@@ -7,6 +7,8 @@
 const int SCREEN_WIDTH = 256;
 const int SCREEN_HEIGHT = 240;
 const int channels = 3;
+const int SCREEN_FPS = 60;
+const int SCREEN_TICKS_PER_FRAME = 1000 / SCREEN_FPS;
 
 class GameWindow
 {

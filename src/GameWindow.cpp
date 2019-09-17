@@ -7,7 +7,24 @@ GameWindow::GameWindow()
     SDL_Init(SDL_INIT_VIDEO);
     window = SDL_CreateWindow("NES", SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, SCREEN_WIDTH, SCREEN_HEIGHT, SDL_WINDOW_SHOWN);
 
-    nes = new NES("C:/Users/Chris/Desktop/NES/roms/DonkeyKong.nes", frameBuffer);
+    int choice = 0;
+
+    std::cin >> choice;
+
+    switch(choice)
+    {
+        case 0:
+            nes = new NES("C:/Users/Chris/Desktop/NES/roms/nestest.nes", frameBuffer);
+            break;
+        case 1:
+            nes = new NES("C:/Users/Chris/Desktop/NES/roms/DonkeyKong.nes", frameBuffer);
+            break;
+        case 2:
+            nes = new NES("C:/Users/Chris/Desktop/NES/roms/Mario.nes", frameBuffer);
+            break;
+    }
+
+    //nes = new NES("C:/Users/Chris/Desktop/NES/roms/Mario.nes", frameBuffer);
 }
 
 void GameWindow::run()
@@ -16,8 +33,13 @@ void GameWindow::run()
 
     SDL_Event e;
 
+    uint32_t startTime;
+    int frameTicks;
+
     while(!quit)
     {
+        startTime = SDL_GetTicks();
+
         while(SDL_PollEvent(&e) != 0)
         {
             if(e.type == SDL_QUIT)
@@ -25,6 +47,12 @@ void GameWindow::run()
         }
 
         nes->prepareFrame();
+
+        frameTicks = SDL_GetTicks() - startTime;
+
+        if(frameTicks < SCREEN_TICKS_PER_FRAME)
+            SDL_Delay(SCREEN_TICKS_PER_FRAME - frameTicks);
+
         update();
     }
 }
