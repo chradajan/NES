@@ -428,14 +428,17 @@ void PPU::spriteFetch()
         
         if((reg.PPUCTRL & 0x20)) //8x16
         {
-            if(OAM_Secondary[OAM_Location].attributes & 0x80)
-            {
-                
-            }
+            if(OAM_Secondary[OAM_Location].attributes & 0x80) //Flipped vertically
+                offset = (offset - 15) * -1;
+
+            if(offset < 8)
+                PT_Address = 0x0000 | ((OAM_Secondary[OAM_Location].tile & 0x01) << 12) | ((OAM_Secondary[OAM_Location].tile & 0xFE) << 4) | offset;
+            else
+                PT_Address = 0x0000 | ((OAM_Secondary[OAM_Location].tile & 0x01) << 12) | ((OAM_Secondary[OAM_Location].tile & 0xFE) << 4) | 0x10 | offset;
         }
         else //8x8
         {
-            if(OAM_Secondary[OAM_Location].attributes & 0x80)
+            if(OAM_Secondary[OAM_Location].attributes & 0x80) //Flipped vertically
                 offset = (offset - 7) * -1;
             PT_Address = 0x0000 | ((reg.PPUCTRL & 0x08) << 9) | (OAM_Secondary[OAM_Location].tile << 4) | offset;
         }
@@ -555,20 +558,30 @@ uint8_t PPU::pixelMultiplexer()
 {
     uint16_t indexAddress;
 
-    //TODO: Check whether to show pixels in leftmost 8 pixels
-
-    if(!(BG_Priority && (BG_Pixel & 0x03)))
-        indexAddress = spritePixel;
+    if(dot < 9 && ((reg.PPUMASK & 0x06) != 0x06))
+    {
+        if((reg.PPUMASK & 0x06) == 0x02) //Sprites hidden
+            indexAddress = BG_Pixel;
+        else if((reg.PPUMASK & 0x06) == 0x04) //Background hidden
+            indexAddress = spritePixel;
+        else //Both hidden, show background color
+            indexAddress = 0x3F00;        
+    } 
     else
-        indexAddress = BG_Pixel;
+    {    
+        if(!(BG_Priority && (BG_Pixel & 0x03)))
+            indexAddress = spritePixel;
+        else
+            indexAddress = BG_Pixel;
 
-    if(!(reg.PPUMASK & 0x08)) //Background disabled
-        indexAddress = spritePixel;
-    else if(!(reg.PPUMASK & 0x10) || scanline == 0) //Sprites disabled
-        indexAddress = BG_Pixel;
+        if(!(reg.PPUMASK & 0x08)) //Background disabled
+            indexAddress = spritePixel;
+        else if(!(reg.PPUMASK & 0x10) || scanline == 0) //Sprites disabled
+            indexAddress = BG_Pixel;
 
-    if(checkSprite0Hit)
-        sprite0Hit();
+        if(checkSprite0Hit)
+            sprite0Hit();
+    }
 
     return read(indexAddress);
 }
