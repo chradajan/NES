@@ -14,12 +14,15 @@ NROM::NROM(HeaderData& header, std::ifstream& rom)
 	}
 	CHR_ROM = new uint8_t[0x2000];
 
-	mirroringIsVertical = header.Flags6 & 0x01;
+	if(header.Flags6 & 0x01)
+		mirroringType = vertical;
+	else
+		mirroringTpye = horizontal;
 
 	loadROM(rom);
 }
 
-uint8_t NROM::readPRG(uint16_t address) const
+uint8_t NROM::readPRG(uint16_t address)
 {
 	if(address < 0x8000)
 		throw IllegalROMRead("Attempted to read PRG ROM", address);
@@ -38,7 +41,7 @@ void NROM::writePRG(uint16_t address, uint8_t data)
 	//throw IllegalROMWrite("Attempted to write PRG ROM", address, data);
 }
 
-uint8_t NROM::readCHR(uint16_t address) const
+uint8_t NROM::readCHR(uint16_t address)
 {
 	if(address > 0x1FFF)
 		throw IllegalROMRead("Attempted to read CHR ROM", address);
@@ -51,9 +54,9 @@ void NROM::writeCHR(uint16_t address, uint8_t data)
 	//throw IllegalROMWrite("Attempted to write CHR ROM", address, data);
 }
 
-bool NROM::verticalMirroring() const
+Mirroring NROM::nametableMirroring() const
 {
-	return mirroringIsVertical;
+	return mirroringType;
 }
 
 NROM::~NROM()
@@ -71,5 +74,7 @@ void NROM::loadROM(std::ifstream& rom)
 	}
 
 	for(uint16_t address = 0x0000; address < 0x2000; ++address)
+	{
 		rom >> std::hex >> CHR_ROM[address];
+	}
 }

@@ -1,5 +1,6 @@
 #include "include/NES.hpp"
 #include "mappers/NROM.hpp"
+#include "mappers/MMC1.hpp"
 #include <cassert>
 #include <iomanip>
 
@@ -44,6 +45,9 @@ void NES::loadROM(const char* file)
 	{
 		case 0:
 			cart = new NROM(header, rom);
+			break;
+		case 1:
+			cart = new MMC1(header, rom);
 			break;
 		default:
 			throw;

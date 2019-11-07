@@ -11,6 +11,8 @@
 
 #define uint unsigned int //Mingw doesn't recognize uintg
 
+enum Mirroring = {horizontal, vertical, single, quad};
+
 struct RGB
 {
 	RGB() 

@@ -232,8 +232,8 @@ uint16_t PPU::nametableAddress(uint16_t address)
     if(address > 0x2FFF)
         address -= 0x1000;
 
-     if(cart.verticalMirroring())
-			address = (address - 0x2000) - (address / 0x2800 * 0x800);
+    if(cart.verticalMirroring())
+		address = (address - 0x2000) - (address / 0x2800 * 0x800);
     else
         address = (address - 0x2000) - (address / 0x2400 * 0x400) - (address / 0x2C00 * 0x400);
 
