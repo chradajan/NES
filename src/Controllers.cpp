@@ -1,4 +1,7 @@
-#include "include/Controllers.hpp"
+#include "../include/Controllers.hpp"
+#include <SDL2/SDL.h>
+#include <iostream>
+#include <iomanip>
 
 Controllers::Controllers()
 {
@@ -17,6 +20,7 @@ uint8_t Controllers::read(uint16_t address)
         }
         else
         {
+            //std::cout << std::hex << std::setw(2) << std::setfill('0') << (uint)JOY1 << std::endl;
             controllerBit |= (JOY1 & 0x01);
             JOY1 >>= 1;
             JOY1 |= 0x80;
@@ -44,7 +48,10 @@ void Controllers::getKeyPresses()
     const uint8_t* currentKeyStates = SDL_GetKeyboardState(NULL);
 
     if(currentKeyStates[SDL_SCANCODE_L]) //A
+    {
+        //std::cout << "A Pressed" << std::endl;
         JOY1 |= 0b00000001;
+    }
     else
         JOY1 &= 0b11111110;
 

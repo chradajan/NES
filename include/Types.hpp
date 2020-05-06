@@ -9,10 +9,6 @@
 #include <fstream>
 #include <iomanip>
 
-#define uint unsigned int //Mingw doesn't recognize uintg
-
-enum Mirroring = {horizontal, vertical, single, quad};
-
 struct RGB
 {
 	RGB() 
@@ -73,13 +69,6 @@ struct Sprite
 		}	
 		return pixelNibble;	
 	}
-};
-
-struct HeaderData
-{
-	uint8_t PRG_ROM_SIZE;
-	uint8_t CHR_ROM_SIZE;
-	uint8_t Flags6, Flags7, Flags8, Flags9, Flags10;
 };
 
 #endif

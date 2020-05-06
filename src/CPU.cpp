@@ -1,4 +1,4 @@
-#include "include/CPU.hpp"
+#include "../include/CPU.hpp"
 
 CPU::CPU(Cartridge* cart, PPU& ppu, APU& apu, Controllers& controllers) 
 : cart(*cart), ppu(ppu), apu(apu), controllers(controllers)

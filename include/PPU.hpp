@@ -52,7 +52,6 @@ private:
     bool renderingEnabled();
     void disabledRenderingDisplay();
     void setNMI();
-    uint16_t nametableAddress(uint16_t address);
     uint16_t paletteAddress(uint16_t address);
 
     void incHoriV();

@@ -1,12 +1,11 @@
-#include "include/NES.hpp"
-#include "mappers/NROM.hpp"
-#include "mappers/MMC1.hpp"
+#include "../include/NES.hpp"
+#include "../mappers/include/NROM.hpp"
 #include <cassert>
 #include <iomanip>
 
 NES::NES(const char* file, char* frameBuffer)
 {
-	loadROM(file);
+	initCart(file);
 	createPalette();
 	controllers = new Controllers();
 	apu = new APU();
@@ -36,48 +35,25 @@ NES::~NES()
 	delete[] colors;
 }
 
-void NES::loadROM(const char* file)
+void NES::initCart(const std::string& romPath)
 {
-	std::ifstream rom(file, std::ios::binary);
-	decodeHeader(rom);
-	int mapperNumber = (header.Flags7 & 0xF0) + (header.Flags6 >> 4);
-	switch(mapperNumber)
-	{
-		case 0:
-			cart = new NROM(header, rom);
-			break;
-		case 1:
-			cart = new MMC1(header, rom);
-			break;
-		default:
-			throw;
-	}
-	rom.close();
-}
+    std::ifstream rom(romPath, std::ios::binary);
+    std::array<uint8_t, 16> header;
+    
+    for(int i = 0; i < 16; ++i)
+        rom >> std::noskipws >> std::hex >> header[i];
 
-void NES::decodeHeader(std::ifstream& rom)
-{
-	uint8_t temp;
-	uint32_t headerCheck = 0;
+    int mapperNumber = (header[7] & 0xF0) + (header[6] >> 4);
 
-	for(int i = 0; i < 4; ++i)
-	{
-		rom >> std::hex >> temp;
-		headerCheck = (headerCheck << 8) + temp;
-	}
-
-	assert(headerCheck == 0x4E45531A);
-
-	rom >> std::hex >> header.PRG_ROM_SIZE;
-	rom >> std::hex >> header.CHR_ROM_SIZE;
-	rom >> std::hex >> header.Flags6;
-	rom >> std::hex >> header.Flags7;
-	rom >> std::hex >> header.Flags8;
-	rom >> std::hex >> header.Flags9;
-	rom >> std::hex >> header.Flags10;
-
-	for(int i = 0; i < 5; ++i)
-		rom >> std::hex >> temp;
+    switch(mapperNumber)
+    {
+        case 0: //NROM
+            cart = new NROM(rom, header);
+            break;
+        //...
+        default:
+            throw("Unrecognized mapper number");
+    }
 }
 
 void NES::createPalette()

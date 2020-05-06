@@ -1,12 +1,13 @@
-#include "include/GameWindow.hpp"
+//#include "../include/GameWindow.hpp"
+#include "../include/GameWindow.hpp"
 
-int main(int argc, char* argv[])
+int main(int argc, char* args[])
 {
 	(void)argc;
-	(void)argv;
+	(void)args;
 
 	GameWindow window;
-	window.run();
+	window.runNES();
 	
 	return 0;
 }

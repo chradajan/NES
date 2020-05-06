@@ -2,7 +2,6 @@
 #define CONTROLLERS_H
 
 #include <cstdint>
-#include <SDL2/SDL.h>
 
 class Controllers
 {

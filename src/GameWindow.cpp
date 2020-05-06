@@ -1,33 +1,17 @@
-#include "include/GameWindow.hpp"
+#include "../include/GameWindow.hpp"
+#include <iostream>
 
 GameWindow::GameWindow()
 {
-    frameBuffer = new char[SCREEN_WIDTH * SCREEN_HEIGHT * channels];
-    screenSurface = SDL_CreateRGBSurfaceFrom((void*)frameBuffer, SCREEN_WIDTH, SCREEN_HEIGHT, channels * 8, SCREEN_WIDTH * channels, 0x0000FF, 0x00FF00, 0xFF0000, 0);
+    frameBuffer = new char[SCREEN_WIDTH * SCREEN_HEIGHT * CHANNELS];
+    screenSurface = SDL_CreateRGBSurfaceFrom((void*)frameBuffer, SCREEN_WIDTH, SCREEN_HEIGHT, CHANNELS * 8, SCREEN_WIDTH * CHANNELS, 0x0000FF, 0x00FF00, 0xFF0000, 0);
     SDL_Init(SDL_INIT_VIDEO);
     window = SDL_CreateWindow("NES", SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, SCREEN_WIDTH, SCREEN_HEIGHT, SDL_WINDOW_SHOWN);
 
-    int choice = 0;
-
-    std::cin >> choice;
-
-    switch(choice)
-    {
-        case 0:
-            nes = new NES("C:/Users/Chris/Desktop/NES/roms/nestest.nes", frameBuffer);
-            break;
-        case 1:
-            nes = new NES("C:/Users/Chris/Desktop/NES/roms/DonkeyKong.nes", frameBuffer);
-            break;
-        case 2:
-            nes = new NES("C:/Users/Chris/Desktop/NES/roms/Mario.nes", frameBuffer);
-            break;
-    }
-
-    //nes = new NES("C:/Users/Chris/Desktop/NES/roms/Mario.nes", frameBuffer);
+    nes = new NES("../roms/Mario.nes", frameBuffer);
 }
 
-void GameWindow::run()
+void GameWindow::runNES()
 {
     bool quit = false;
 
@@ -40,7 +24,7 @@ void GameWindow::run()
     {
         startTime = SDL_GetTicks();
 
-        while(SDL_PollEvent(&e) != 0)
+        while(SDL_PollEvent(&e))
         {
             if(e.type == SDL_QUIT)
                 quit = true;
@@ -53,7 +37,7 @@ void GameWindow::run()
         if(frameTicks < SCREEN_TICKS_PER_FRAME)
             SDL_Delay(SCREEN_TICKS_PER_FRAME - frameTicks);
 
-        update();
+        updateScreen();
     }
 }
 
@@ -63,8 +47,8 @@ GameWindow::~GameWindow()
     SDL_Quit();
 }
 
-void GameWindow::update()
+void GameWindow::updateScreen()
 {
-    SDL_BlitSurface(screenSurface, 0, SDL_GetWindowSurface(window), 0);
+    SDL_BlitSurface(screenSurface, NULL, SDL_GetWindowSurface(window), NULL);
     SDL_UpdateWindowSurface(window);
 }

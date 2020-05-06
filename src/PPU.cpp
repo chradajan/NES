@@ -1,4 +1,4 @@
-#include "include/PPU.hpp"
+#include "../include/PPU.hpp"
 
 PPU::PPU(Cartridge* cartridge, RGB* color, char* fb, bool& frameReady)
 : cart(*cartridge), colors(color), frameBuffer(fb), frameReady(frameReady)
@@ -111,7 +111,7 @@ uint8_t PPU::read(uint16_t address)
     if(address < 0x2000) //Pattern tables
         return cart.readCHR(address);
     else if(address < 0x3F00) //Nametables
-        return VRAM[nametableAddress(address)];
+        return VRAM[cart.nametableAddress(address)];
     else //Palettes
         return paletteRAM[paletteAddress(address)];
 }
@@ -122,7 +122,7 @@ void PPU::write(uint16_t address, uint8_t data)
     if(address < 0x2000) //Pattern tables
         cart.writeCHR(address, data);
     else if(address < 0x3F00)
-        VRAM[nametableAddress(address)] = data;
+        VRAM[cart.nametableAddress(address)] = data;
     else
         paletteRAM[paletteAddress(address)] = data;
 }
@@ -223,21 +223,6 @@ void PPU::disabledRenderingDisplay()
 void PPU::setNMI()
 {
     nmi = (reg.PPUCTRL & 0x80) && (reg.PPUSTATUS & 0x80);
-}
-
-uint16_t PPU::nametableAddress(uint16_t address)
-{
-    address &= 0x3FFF;
-
-    if(address > 0x2FFF)
-        address -= 0x1000;
-
-    if(cart.verticalMirroring())
-		address = (address - 0x2000) - (address / 0x2800 * 0x800);
-    else
-        address = (address - 0x2000) - (address / 0x2400 * 0x400) - (address / 0x2C00 * 0x400);
-
-    return address;
 }
 
 uint16_t PPU::paletteAddress(uint16_t address)

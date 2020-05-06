@@ -17,7 +17,6 @@ public:
 	~NES();
 
 private:
-	HeaderData header;
 	Cartridge* cart;
 	CPU* cpu;
 	APU* apu;
@@ -27,8 +26,7 @@ private:
 	bool frameReady = false;
 
 	//ROM Loading
-	void loadROM(const char* file);
-	void decodeHeader(std::ifstream& rom);
+	void initCart(const std::string& romPath);
 
 	//Palette
 	void createPalette();

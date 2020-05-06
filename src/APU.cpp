@@ -1,4 +1,4 @@
-#include "include/APU.hpp"
+#include "../include/APU.hpp"
 
 APU::APU()
 {

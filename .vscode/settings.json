@@ -43,7 +43,11 @@
         "memory": "cpp",
         "memory_resource": "cpp",
         "string": "cpp",
-        "iterator": "cpp"
+        "iterator": "cpp",
+        "hash_map": "cpp",
+        "bit": "cpp",
+        "list": "cpp",
+        "numeric": "cpp",
+        "random": "cpp"
     },
-    "C_Cpp.errorSquiggles": "Disabled"
 }
