@@ -21,6 +21,7 @@ private:
     NES* nes;
     SDL_Window* window = nullptr;
     SDL_Surface* screenSurface = nullptr;
+    SDL_Surface* windowSurface = nullptr;
     char* frameBuffer;
 };
 

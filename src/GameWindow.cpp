@@ -7,6 +7,7 @@ GameWindow::GameWindow()
     screenSurface = SDL_CreateRGBSurfaceFrom((void*)frameBuffer, SCREEN_WIDTH, SCREEN_HEIGHT, CHANNELS * 8, SCREEN_WIDTH * CHANNELS, 0x0000FF, 0x00FF00, 0xFF0000, 0);
     SDL_Init(SDL_INIT_VIDEO);
     window = SDL_CreateWindow("NES", SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, SCREEN_WIDTH, SCREEN_HEIGHT, SDL_WINDOW_SHOWN);
+    windowSurface = SDL_GetWindowSurface(window);
 
     nes = new NES("../roms/Mario.nes", frameBuffer);
 }
@@ -49,6 +50,6 @@ GameWindow::~GameWindow()
 
 void GameWindow::updateScreen()
 {
-    SDL_BlitSurface(screenSurface, NULL, SDL_GetWindowSurface(window), NULL);
+    SDL_BlitSurface(screenSurface, NULL, windowSurface, NULL);
     SDL_UpdateWindowSurface(window);
 }
