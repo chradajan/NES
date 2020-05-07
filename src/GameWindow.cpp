@@ -20,7 +20,7 @@ void GameWindow::runNES()
 
     uint32_t startTime;
     int frameTicks;
-
+    
     while(!quit)
     {
         startTime = SDL_GetTicks();
@@ -44,6 +44,8 @@ void GameWindow::runNES()
 
 GameWindow::~GameWindow()
 {
+    SDL_FreeSurface(screenSurface);
+    SDL_FreeSurface(windowSurface);
     SDL_DestroyWindow(window);
     SDL_Quit();
 }

@@ -1,20 +1,18 @@
 #ifndef CPU_H
 #define CPU_H
-#include <cstdint>
-#include <functional>
-#include <iostream>
-#include <string>
 #include "Cartridge.hpp"
-#include "Types.hpp"
 #include "Exceptions.hpp"
 #include "PPU.hpp"
 #include "APU.hpp"
 #include "Controllers.hpp"
+#include <cstdint>
+#include <functional>
+#include <memory>
 
 class CPU
 {
 public:
-	CPU(Cartridge* cart, PPU& ppu, APU& apu, Controllers& controllers);
+	CPU(std::shared_ptr<Cartridge> cart, std::shared_ptr<PPU> ppu, std::shared_ptr<APU> apu, std::shared_ptr<Controllers> controllers);
 	void reset();
 	void tick();
 	~CPU();
@@ -22,33 +20,38 @@ public:
 private:
 	struct CPU_Registers
 	{
-		uint8_t AC = 0x00;		//Accumulator
-		uint8_t X = 0x00;		//X
-		uint8_t Y = 0x00;		//Y
-		uint16_t PC;			//Program Counter
-		uint8_t SP = 0xFD;		//Stack Pointer
-		uint8_t SR = 0x34;		//Status
+		uint8_t AC;		//Accumulator
+		uint8_t X;		//X
+		uint8_t Y;		//Y
+		uint16_t PC;	//Program Counter
+		uint8_t SP;		//Stack Pointer
+		uint8_t SR;		//Status
 	};
-
-	Cartridge& cart;
 	CPU_Registers reg;
-	PPU& ppu;
-	APU& apu;
-	Controllers& controllers;
-	uint8_t RAM[0x0800];
+
+	std::shared_ptr<Cartridge> cart;
+	std::shared_ptr<PPU>ppu;
+	std::shared_ptr<APU> apu;
+	std::shared_ptr<Controllers> controllers;
+
+	std::array<uint8_t, 0x0800> RAM;
+
+	//Startup
+	void init();
 
 	//State
 	bool oddCycle;
 	uint8_t currentOP;
-	int cycleCount = 0;
-	uint8_t dataBus = 0x00;
-	uint16_t addressBus = 0x0000;
+	int cycleCount;
+	uint8_t dataBus;
+	uint16_t addressBus;
 	std::function<void()> tickFunction;
 	int totalCycles; //Used to determine when to allow writes to PPU registers
 
 	//DMA Transfer
 	bool dmaTransfer = false;
-	int dmaTransferCycles, cycleCountReturn = 0;
+	int dmaTransferCycles;
+	int cycleCountReturn;
 	uint16_t dmaPage;
 	uint8_t dmaLowByte;
 	uint8_t dmaData;

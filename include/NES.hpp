@@ -24,14 +24,10 @@ private:
 	std::shared_ptr<Controllers> controllers;
 	std::unique_ptr<CPU> cpu;
 
-	RGB* colors;
 	bool frameReady = false;
 
 	//ROM Loading
 	void initCart(const std::string& romPath);
-
-	//Palette
-	void createPalette();
 };
 
 #endif

@@ -2,47 +2,58 @@
 #define PPU_HPP
 
 #include "Cartridge.hpp"
-#include "Types.hpp"
+#include "Sprite.hpp"
 #include <cstdint>
 #include <memory>
+#include <array>
 
 class PPU
 {
 public:
-    PPU(Cartridge* cartridge, RGB* color, std::shared_ptr<char[]> frameBuffer, bool& frameReady);
+    PPU(std::shared_ptr<Cartridge> cartridge, std::shared_ptr<char[]> frameBuffer, bool& frameReady);
     uint8_t readMemMappedReg(uint16_t address);
     void writeMemMappedReg(uint16_t address, uint8_t data);
     void tick();
     bool NMI();
-    ~PPU();
 private:
     struct PPU_Registers
     {
-        uint8_t PPUCTRL = 0;
-        uint8_t PPUMASK = 0;
-        uint8_t PPUSTATUS = 0;
-        uint8_t OAMADDR = 0;
-        uint8_t ReadBuffer = 0;
+        uint8_t PPUCTRL;
+        uint8_t PPUMASK;
+        uint8_t PPUSTATUS;
+        uint8_t OAMADDR;
+        uint8_t ReadBuffer;
 
-        uint16_t v = 0;
-        uint16_t t = 0;
-        uint8_t x = 0;
-        bool w = false;
+        uint16_t v;
+        uint16_t t;
+        uint8_t x;
+        bool w;
     };
     PPU_Registers reg;
-    uint8_t VRAM[0x800];
-    uint8_t OAM[0x100]; //Primary OAM
-    Sprite OAM_Secondary[8]; //Used during sprite evaluation
-    uint8_t paletteRAM[0x20];
 
-    Cartridge& cart;
-    RGB* colors;
+    struct RGB
+    {
+        uint8_t R, G, B;
+    };
+    std::array<RGB, 64> colors;
+
+    std::shared_ptr<Cartridge> cart;
     std::shared_ptr<char[]> frameBuffer;
     bool& frameReady;
 
-    bool vblank = true, nmi = false;
-    int scanline = 0, dot = 30;
-    bool oddFrame = false;
+    std::array<uint8_t, 0x0800> VRAM;
+    std::array<uint8_t, 0x0100> OAM;
+    std::array<Sprite, 8> OAM_Secondary;
+    std::array<uint8_t, 0x0020> paletteRAM;
+
+    bool vblank;
+    bool nmi;
+    int scanline;
+    int dot;
+    bool oddFrame;
+
+    void init();
+    void readInColors();
 
     uint8_t read(uint16_t address);
     void write(uint16_t address, uint8_t data);
@@ -62,36 +73,41 @@ private:
     void incDot();
 
     //Sprites
-    bool checkSprite0Hit = false;
-    uint16_t spritePixel = 0x0000;
-    bool BG_Priority = true;
+    bool checkSprite0Hit;
+    uint16_t spritePixel;
+    bool BG_Priority;
     void getSpritePixel();
 
     int N, M, OAM_Location, /*spriteCount,*/ spriteFetchCycle;
     //uint8_t OAM_Buffer;
-    uint16_t Sprite_Pixel = 0x0000;
     void spriteEval();
     void spriteOverflowEval(int N);
     void spriteFetch();
     void sprite0Hit();
 
     //Background
-    uint16_t BG_Pixel = 0x0000;
+    uint16_t BG_Pixel;
     void getBackgroundPixel();
 
-    int backgroundFetchCycle = 0;
-    uint8_t NT_Byte = 0x00, AT_Byte = 0x00, PT_High = 0x00, PT_Low = 0x00;
-    uint16_t PT_Address = 0x0000;
-    uint16_t PT_Shifter_High = 0x0000, PT_Shifter_Low = 0x0000;
-    uint8_t AT_Shifter_High = 0x00, AT_Shifter_Low = 0x00;
-    bool AT_Latch_High = false, AT_Latch_Low = false;
+    int backgroundFetchCycle;
+    uint8_t NT_Byte;
+    uint8_t AT_Byte;
+    uint8_t PT_High;
+    uint8_t PT_Low;
+    uint16_t PT_Address;
+    uint16_t PT_Shifter_High;
+    uint16_t PT_Shifter_Low;
+    uint8_t AT_Shifter_High;
+    uint8_t AT_Shifter_Low;
+    bool AT_Latch_High;
+    bool AT_Latch_Low;
     void backgroundFetch();
     void shiftRegisters();
     void loadShiftRegisters();
     void setAttributeLatches();
 
     //Rendering
-    int frameBufferPointer = 0;
+    int frameBufferPointer;
     uint8_t pixelMultiplexer();
     void renderPixel();
 };

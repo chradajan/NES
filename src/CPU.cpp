@@ -1,15 +1,11 @@
 #include "../include/CPU.hpp"
 
-CPU::CPU(Cartridge* cart, PPU& ppu, APU& apu, Controllers& controllers) 
-: cart(*cart), ppu(ppu), apu(apu), controllers(controllers)
+CPU::CPU(std::shared_ptr<Cartridge> cart, std::shared_ptr<PPU> ppu, std::shared_ptr<APU> apu, std::shared_ptr<Controllers> controllers) 
+: cart(cart), ppu(ppu), apu(apu), controllers(controllers)
 {
 	//TODO: set noise channel
 
-	cycleCount = 0;
-	totalCycles = 0;
-	oddCycle = false;
-
-	totalCycles = 0;
+	init();
 
 	Reset_Vector();
 
@@ -33,6 +29,25 @@ void CPU::tick()
 		decodeOP();
 	else
 		tickFunction();
+}
+
+void CPU::init()
+{
+	RAM.fill(0x00);
+
+	reg.AC = 0x00;
+	reg.X = 0x00;
+	reg.Y = 0x00;
+	reg.SP = 0xFD;
+	reg.SR = 0x34;
+
+	oddCycle = false;
+	cycleCount = 0;
+	totalCycles = 0;
+	dataBus = 0x00;
+	addressBus = 0x0000;
+
+	dmaTransfer = false;
 }
 
 CPU::~CPU() {}
@@ -99,15 +114,15 @@ uint8_t CPU::read(uint16_t address) const
 	if(address < 0x2000) //Internal RAM
 		return RAM[address % 0x0800];
 	else if(address < 0x4000) //PPU registers
-		return ppu.readMemMappedReg(address);
+		return ppu->readMemMappedReg(address);
 	else if(address < 0x4016) //APU or I/O Registers
-		return apu.readMemMappedReg(address);
+		return apu->readMemMappedReg(address);
 	else if(address < 0x4018)
-		return controllers.read(address);
+		return controllers->read(address);
 	else if(address < 0x4020) //Disabled APU and I/O Functionality
 		throw Unsupported("CPU Test Mode Disabled");
 	else //Cartridge Space
-		return cart.readPRG(address);
+		return cart->readPRG(address);
 }
 
 void CPU::write(uint16_t address, uint8_t data)
@@ -115,7 +130,7 @@ void CPU::write(uint16_t address, uint8_t data)
 	if(address < 0x2000) //Internal RAM
 		RAM[address % 0x0800] = data;
 	else if(address < 0x4000) //PPU registers
-		ppu.writeMemMappedReg(address, data);
+		ppu->writeMemMappedReg(address, data);
 	else if(address == 0x4014) //Trigger DMA Transfer
 	{
 		dmaTransfer = true;
@@ -125,13 +140,13 @@ void CPU::write(uint16_t address, uint8_t data)
 		cycleCountReturn = cycleCount;
 	}
 	else if(address == 0x4016)
-		controllers.write(data);
+		controllers->write(data);
 	else if(address < 0x4018) //APU or I/O Registers
-		apu.writeMemMappedReg(address, data);
+		apu->writeMemMappedReg(address, data);
 	else if(address < 0x4020) //Disabled APU and I/O Functionality
 		throw Unsupported("CPU Test Mode Disabled");
 	else //Cartridge Space
-		cart.writePRG(address, data);
+		cart->writePRG(address, data);
 }
 
 uint8_t CPU::pop()
@@ -148,7 +163,7 @@ void CPU::push(uint8_t data)
 
 void CPU::readOPCode()
 {
-	if(ppu.NMI())
+	if(ppu->NMI())
 	{
 		cycleCount = 1;
 		tickFunction = std::bind(&CPU::NMI, this);
