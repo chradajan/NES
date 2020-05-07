@@ -1,8 +1,9 @@
-#ifndef GAMEWINDOW_H
-#define GAMEWINDOW_H
+#ifndef GAMEWINDOW_HPP
+#define GAMEWINDOW_HPP
 
-#include <SDL2/SDL.h>
 #include "NES.hpp"
+#include <SDL2/SDL.h>
+#include <memory>
 
 const int SCREEN_WIDTH = 256;
 const int SCREEN_HEIGHT = 240;
@@ -22,7 +23,7 @@ private:
     SDL_Window* window = nullptr;
     SDL_Surface* screenSurface = nullptr;
     SDL_Surface* windowSurface = nullptr;
-    char* frameBuffer;
+    std::shared_ptr<char[]> frameBuffer;
 };
 
 #endif

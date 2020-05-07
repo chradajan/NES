@@ -1,14 +1,15 @@
-#ifndef PPU_H
-#define PPU_H
+#ifndef PPU_HPP
+#define PPU_HPP
 
-#include <cstdint>
 #include "Cartridge.hpp"
 #include "Types.hpp"
+#include <cstdint>
+#include <memory>
 
 class PPU
 {
 public:
-    PPU(Cartridge* cartridge, RGB* color, char* fb, bool& frameReady);
+    PPU(Cartridge* cartridge, RGB* color, std::shared_ptr<char[]> frameBuffer, bool& frameReady);
     uint8_t readMemMappedReg(uint16_t address);
     void writeMemMappedReg(uint16_t address, uint8_t data);
     void tick();
@@ -36,7 +37,7 @@ private:
 
     Cartridge& cart;
     RGB* colors;
-    char* frameBuffer;
+    std::shared_ptr<char[]> frameBuffer;
     bool& frameReady;
 
     bool vblank = true, nmi = false;

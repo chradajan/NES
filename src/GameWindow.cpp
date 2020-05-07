@@ -3,8 +3,8 @@
 
 GameWindow::GameWindow()
 {
-    frameBuffer = new char[SCREEN_WIDTH * SCREEN_HEIGHT * CHANNELS];
-    screenSurface = SDL_CreateRGBSurfaceFrom((void*)frameBuffer, SCREEN_WIDTH, SCREEN_HEIGHT, CHANNELS * 8, SCREEN_WIDTH * CHANNELS, 0x0000FF, 0x00FF00, 0xFF0000, 0);
+    frameBuffer = std::shared_ptr<char[]>(new char[SCREEN_WIDTH * SCREEN_HEIGHT * CHANNELS]);
+    screenSurface = SDL_CreateRGBSurfaceFrom((void*)frameBuffer.get(), SCREEN_WIDTH, SCREEN_HEIGHT, CHANNELS * 8, SCREEN_WIDTH * CHANNELS, 0x0000FF, 0x00FF00, 0xFF0000, 0);
     SDL_Init(SDL_INIT_VIDEO);
     window = SDL_CreateWindow("NES", SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, SCREEN_WIDTH, SCREEN_HEIGHT, SDL_WINDOW_SHOWN);
     windowSurface = SDL_GetWindowSurface(window);

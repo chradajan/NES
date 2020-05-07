@@ -3,7 +3,7 @@
 #include <cassert>
 #include <iomanip>
 
-NES::NES(const char* file, char* frameBuffer)
+NES::NES(const char* file, std::shared_ptr<char[]> frameBuffer)
 {
 	initCart(file);
 	createPalette();

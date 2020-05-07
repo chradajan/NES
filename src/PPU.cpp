@@ -1,7 +1,7 @@
 #include "../include/PPU.hpp"
 
-PPU::PPU(Cartridge* cartridge, RGB* color, char* fb, bool& frameReady)
-: cart(*cartridge), colors(color), frameBuffer(fb), frameReady(frameReady)
+PPU::PPU(Cartridge* cartridge, RGB* color, std::shared_ptr<char[]> frameBuffer, bool& frameReady)
+: cart(*cartridge), colors(color), frameBuffer(frameBuffer), frameReady(frameReady)
 {
     for(int i = 0; i < 0x800; ++i)
         VRAM[i] = 0x00;
