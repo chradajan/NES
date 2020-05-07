@@ -46,7 +46,6 @@ private:
 	uint8_t dataBus;
 	uint16_t addressBus;
 	std::function<void()> tickFunction;
-	int totalCycles; //Used to determine when to allow writes to PPU registers
 
 	//DMA Transfer
 	bool dmaTransfer = false;

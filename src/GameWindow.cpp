@@ -9,7 +9,7 @@ GameWindow::GameWindow()
     window = SDL_CreateWindow("NES", SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, SCREEN_WIDTH, SCREEN_HEIGHT, SDL_WINDOW_SHOWN);
     windowSurface = SDL_GetWindowSurface(window);
 
-    nes = new NES("../roms/Mario.nes", frameBuffer);
+    nes = std::unique_ptr<NES>(new NES("../roms/Mario.nes", frameBuffer));
 }
 
 void GameWindow::runNES()
@@ -52,6 +52,7 @@ GameWindow::~GameWindow()
 
 void GameWindow::updateScreen()
 {
+    //SDL_BlitScaled(screenSurface, NULL, windowSurface, NULL);
     SDL_BlitSurface(screenSurface, NULL, windowSurface, NULL);
     SDL_UpdateWindowSurface(window);
 }

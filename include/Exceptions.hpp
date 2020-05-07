@@ -24,11 +24,11 @@ class UnkownOPCode : virtual public std::exception
 private:
 	std::string errorMessage;
 public:
-	explicit UnkownOPCode(uint8_t code, int cycle, int totalCycles, uint16_t pc)
+	explicit UnkownOPCode(uint8_t code, int cycle, uint16_t pc)
 	{
 		std::stringstream ss;
 		ss << "Bad OPCode: " << std::uppercase << std::hex << std::setfill('0') << std::setw(2) << (uint)code << " @ PC = " << std::setw(4) << (uint)pc << std::endl;
-		ss << "Total cycles: " << std::dec << totalCycles << "   Cycle count: " << cycle << std::endl;
+		ss << "Cycle count: " << cycle << std::endl;
 		errorMessage = ss.str();
 	}
 	virtual const char* what() const throw()

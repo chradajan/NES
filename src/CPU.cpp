@@ -21,7 +21,6 @@ void CPU::tick()
 {
 	oddCycle = !oddCycle;
 	++cycleCount;
-	++totalCycles;
 
 	if(dmaTransfer)
 		executeDMATransfer();
@@ -43,7 +42,6 @@ void CPU::init()
 
 	oddCycle = false;
 	cycleCount = 0;
-	totalCycles = 0;
 	dataBus = 0x00;
 	addressBus = 0x0000;
 
@@ -1757,7 +1755,7 @@ void CPU::decodeOP()
 			tickFunction = std::bind(&CPU::implied, this, executeInstruction);
 			break;
 		default:
-			throw UnkownOPCode(currentOP, cycleCount, totalCycles, reg.PC);
+			throw UnkownOPCode(currentOP, cycleCount, reg.PC);
 	}
 	tickFunction();
 }

@@ -15,7 +15,6 @@ class NES
 public:
 	NES(const char* file, std::shared_ptr<char[]> frameBuffer);
 	void prepareFrame();
-	~NES();
 
 private:
 	std::shared_ptr<Cartridge> cart;

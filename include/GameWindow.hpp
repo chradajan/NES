@@ -19,7 +19,7 @@ public:
     void updateScreen();
     ~GameWindow();
 private:
-    NES* nes;
+    std::unique_ptr<NES> nes;
     SDL_Window* window = nullptr;
     SDL_Surface* screenSurface = nullptr;
     SDL_Surface* windowSurface = nullptr;
