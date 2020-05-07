@@ -4,7 +4,6 @@
 #include "CPU.hpp"
 #include "APU.hpp"
 #include "PPU.hpp"
-#include "Types.hpp"
 #include "Cartridge.hpp"
 #include "Exceptions.hpp"
 #include <cstdint>
@@ -19,11 +18,12 @@ public:
 	~NES();
 
 private:
-	Cartridge* cart;
-	CPU* cpu;
-	APU* apu;
-	PPU* ppu;
-	Controllers* controllers;
+	std::shared_ptr<Cartridge> cart;
+	std::shared_ptr<PPU> ppu;
+	std::shared_ptr<APU> apu;
+	std::shared_ptr<Controllers> controllers;
+	std::unique_ptr<CPU> cpu;
+
 	RGB* colors;
 	bool frameReady = false;
 

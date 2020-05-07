@@ -6,11 +6,12 @@
 NES::NES(const char* file, std::shared_ptr<char[]> frameBuffer)
 {
 	initCart(file);
+	ppu = std::shared_ptr<PPU>(new PPU(cart, colors, frameBuffer, frameReady));
+	apu = std::shared_ptr<APU>(new APU());
+	controllers = std::shared_ptr<Controllers>(new Controllers());
+	cpu = std::unique_ptr<CPU>(new CPU(cart, *ppu, *apu, *controllers));
+
 	createPalette();
-	controllers = new Controllers();
-	apu = new APU();
-	ppu = new PPU(cart, colors, frameBuffer, frameReady);
-	cpu = new CPU(cart, *ppu, *apu, *controllers);
 }
 
 void NES::prepareFrame()
@@ -23,16 +24,6 @@ void NES::prepareFrame()
 		ppu->tick();
 	}
 	frameReady = false;
-}
-
-NES::~NES()
-{
-	delete cpu;
-	delete ppu;
-	delete apu;
-	delete controllers;
-	delete cart;
-	delete[] colors;
 }
 
 void NES::initCart(const std::string& romPath)
@@ -48,7 +39,7 @@ void NES::initCart(const std::string& romPath)
     switch(mapperNumber)
     {
         case 0: //NROM
-            cart = new NROM(rom, header);
+            cart = std::shared_ptr<Cartridge>(new NROM(rom, header));
             break;
         //...
         default:
